@@ -9,7 +9,7 @@ BluBus Pulse is the backend API service that powers the **BluBus** application e
 ### Architecture
 - **BluBus**: The main frontend application (mobile/web) that users interact with
 - **BluBus Pulse**: This backend API service that provides data and functionality to BluBus
-- **MySQL Database**: Persistent storage for all bus, route, and location data
+- **PostgreSQL Database**: Persistent storage for all bus, route, and location data
 
 ## Features
 
@@ -25,8 +25,8 @@ BluBus Pulse is the backend API service that powers the **BluBus** application e
 
 - **FastAPI**: Modern, fast web framework for building APIs
 - **SQLAlchemy**: SQL toolkit and Object-Relational Mapping (ORM) library
-- **MySQL**: Primary database for data persistence
-- **PyMySQL**: MySQL database connector for Python
+- **PostgreSQL**: Primary database for data persistence
+- **psycopg2**: PostgreSQL database connector for Python
 - **Alembic**: Database migration tool
 - **Pydantic**: Data validation using Python type annotations
 - **Uvicorn**: ASGI server for running the application
@@ -37,7 +37,7 @@ BluBus Pulse is the backend API service that powers the **BluBus** application e
 
 - Python 3.13+
 - uv package manager
-- MySQL 8.0+ (or MariaDB 10.3+)
+- PostgreSQL 15+ (or use Docker)
 
 ## Installation
 
@@ -57,16 +57,35 @@ BluBus Pulse is the backend API service that powers the **BluBus** application e
    uv sync
    ```
 
-4. **Set up MySQL database**:
-   ```bash
-   # Create database
-   mysql -u root -p -e "CREATE DATABASE bbpulse;"
+4. **Set up PostgreSQL database**:
    
+   **Option A: Using Docker (Recommended)**
+   ```bash
+   # Start PostgreSQL with Docker
+   docker run --name postgres-bbpulse -e POSTGRES_PASSWORD=password -e POSTGRES_DB=bbpulse -p 5432:5432 -d postgres:15-alpine
+   ```
+   
+   **Option B: Manual Installation**
+   ```bash
+   # Install PostgreSQL (Ubuntu/Debian)
+   sudo apt-get update
+   sudo apt-get install postgresql postgresql-contrib
+   
+   # Create database and user
+   sudo -u postgres psql
+   CREATE USER postgres WITH PASSWORD 'password';
+   CREATE DATABASE bbpulse OWNER postgres;
+   GRANT ALL PRIVILEGES ON DATABASE bbpulse TO postgres;
+   \q
+   ```
+   
+   **Option C: Automated Setup**
+   ```bash
    # Copy environment configuration
    cp env.example .env
    
-   # Edit .env file with your MySQL credentials
-   # DATABASE_URL=mysql+pymysql://username:password@localhost:3306/bbpulse
+   # Run automated PostgreSQL setup
+   uv run python setup_postgresql.py
    ```
 
 5. **Initialize the database**:
@@ -99,6 +118,27 @@ The application will be available at:
 ```bash
 uv run uvicorn bbpulse.main:app --host 0.0.0.0 --port 8000
 ```
+
+### Using Docker Compose (Recommended)
+
+For a complete development environment with PostgreSQL and Redis:
+
+```bash
+# Start all services (PostgreSQL, Redis, App, Celery)
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop all services
+docker-compose down
+```
+
+This will start:
+- PostgreSQL database on port 5432
+- Redis on port 6379
+- FastAPI application on port 8000
+- Celery worker for background tasks
 
 ## API Endpoints
 

@@ -13,13 +13,14 @@ class WhatsAppService:
     """Service for sending WhatsApp messages."""
     
     def __init__(self):
-        self.api_url = getattr(settings, 'WA_API_URL', 'https://api.whatsapp.com')
+        self.api_url = getattr(settings, 'WA_API_URL', 'https://graph.facebook.com/v22.0')
         self.api_token = getattr(settings, 'WA_API_TOKEN', '')
+        self.phone_number_id = getattr(settings, 'WA_PHONE_NUMBER_ID', '')
         self.timeout = 30
     
     async def send_message(self, phone_number: str, message: str) -> bool:
         """
-        Send a WhatsApp message.
+        Send a WhatsApp message via Facebook Graph API.
         
         Args:
             phone_number: Recipient's phone number (with country code)
@@ -32,11 +33,14 @@ class WhatsAppService:
             # Format phone number (remove any non-digit characters except +)
             formatted_phone = self._format_phone_number(phone_number)
             
-            # Prepare request data
+            # Prepare request data for Facebook Graph API
             data = {
+                "messaging_product": "whatsapp",
                 "to": formatted_phone,
-                "text": message,
-                "type": "text"
+                "type": "text",
+                "text": {
+                    "body": message
+                }
             }
             
             headers = {
@@ -44,10 +48,10 @@ class WhatsAppService:
                 "Content-Type": "application/json"
             }
             
-            # Send request
+            # Send request to Facebook Graph API
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.post(
-                    f"{self.api_url}/messages",
+                    f"{self.api_url}/{self.phone_number_id}/messages",
                     json=data,
                     headers=headers
                 )
@@ -96,8 +100,8 @@ class WhatsAppService:
         
         # Ensure it starts with country code
         if not cleaned.startswith('+'):
-            # Assume it's a US number if no country code
-            cleaned = '+1' + cleaned
+            # Assume it's an Indian number if no country code
+            cleaned = '+91' + cleaned
         
         return cleaned
     

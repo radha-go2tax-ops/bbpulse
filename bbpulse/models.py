@@ -2,7 +2,7 @@
 Database models for BluBus Pulse backend application.
 """
 from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Table, Text, JSON, Boolean, Enum as SQLEnum
-from sqlalchemy.dialects.postgresql import UUID, ARRAY
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from .database import Base
@@ -297,8 +297,8 @@ class OrganizationMembership(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     user_id = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=False, index=True)
     organization_id = Column(UUID(as_uuid=True), ForeignKey('organizations.id'), nullable=False, index=True)
-    roles = Column(ARRAY(String), default=[], nullable=False)
-    departments = Column(ARRAY(String), default=[], nullable=False)
+    roles = Column(JSON, default=list, nullable=False)
+    departments = Column(JSON, default=list, nullable=False)
     status = Column(SQLEnum(MembershipStatus), default=MembershipStatus.ACTIVE, index=True)
     is_deleted = Column(Boolean, default=False, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

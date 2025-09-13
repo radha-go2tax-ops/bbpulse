@@ -1,25 +1,18 @@
 """
 Database configuration and connection setup for BluBus Pulse backend.
 """
-import os
 from sqlalchemy import create_engine, MetaData
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from dotenv import load_dotenv
+from .settings import settings
 
-# Load environment variables
-load_dotenv()
-
-# Database configuration
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql://postgres:password@localhost:5432/bbpulse"
-)
+# Database configuration from settings
+DATABASE_URL = settings.database_url
 
 # Create SQLAlchemy engine
 engine = create_engine(
     DATABASE_URL,
-    echo=os.getenv("DEBUG", "False").lower() == "true",
+    echo=settings.debug,
     pool_pre_ping=True,
     pool_recycle=300
 )

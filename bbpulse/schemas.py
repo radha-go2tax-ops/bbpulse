@@ -4,6 +4,7 @@ Pydantic schemas for request/response validation.
 from pydantic import BaseModel, Field, EmailStr, validator
 from typing import List, Optional, Dict, Any, Union
 from datetime import datetime
+from enum import Enum
 import re
 
 
@@ -605,5 +606,4 @@ class LogoutResponse(BaseModel):
 
 
 # Import Enum for proper type hints
-from enum import Enum
 

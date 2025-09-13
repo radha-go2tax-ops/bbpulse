@@ -87,7 +87,7 @@ class SESEmailService(AWSService):
                 Source=self.source_email,
                 Destination={'ToAddresses': [to_email]},
                 Message=message,
-                ReplyToAddresses=[self.reply_to_email] if self.reply_to_email else None
+                ReplyToAddresses=[self.reply_to_email] if self.reply_to_email else []
             )
             
             message_id = response['MessageId']

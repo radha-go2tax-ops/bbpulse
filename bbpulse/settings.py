@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
     
     # Database Configuration
-    database_url: str = "sqlite:///./bbpulse.db"
+    database_url: str = "postgresql://postgres:root@localhost:5432/bbpulse"
     
     # AWS Configuration
     aws_region: str = "us-east-1"
@@ -43,11 +43,8 @@ class Settings(BaseSettings):
     max_login_attempts: int = 5
     
     # WhatsApp Configuration
-    WA_API_URL: Optional[str] = None
-    WA_API_TOKEN: Optional[str] = None
-        # WhatsApp API Settings
-    WA_API_TOKEN: str = "EAAQlp2DbAt4BO1BG2X7XqThmllRcqedFmoif6HrhBTprFkwidmwKHBILx9GuYWJZBUxuxZCC0mUggUSTM2LvhHD3brUX2c5fb9WtaXIbHNVuxSUKxDxyi1H1cQl7A697MCFGuse8jMN7ayGU48Yy16CtwhPwqUBZAvhco320Wl7WLXgvqjT8hqROZC79iSujuAZDZD"
     WA_API_URL: str = "https://graph.facebook.com/v22.0"
+    WA_API_TOKEN: str = "EAAQlp2DbAt4BO1BG2X7XqThmllRcqedFmoif6HrhBTprFkwidmwKHBILx9GuYWJZBUxuxZCC0mUggUSTM2LvhHD3brUX2c5fb9WtaXIbHNVuxSUKxDxyi1H1cQl7A697MCFGuse8jMN7ayGU48Yy16CtwhPwqUBZAvhco320Wl7WLXgvqjT8hqROZC79iSujuAZDZD"
     WA_PHONE_NUMBER_ID: str = "513292218537898" # for phone number +91 8296964424
     WA_BUSINESS_ACCOUNT_ID: str = "518136178052232" # for go2tax
     WA_SIGNATURE: str = "GO2TAX4321"
