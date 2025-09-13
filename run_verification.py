@@ -32,7 +32,7 @@ def start_server():
     try:
         # Start server in background
         process = subprocess.Popen(
-            ["python", "-m", "uvicorn", "blubuspulse.main:app", "--reload", "--host", "0.0.0.0", "--port", "8000"],
+            ["python", "-m", "uvicorn", "bbpulse.main:app", "--reload", "--host", "0.0.0.0", "--port", "8000"],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE
         )
@@ -136,3 +136,4 @@ def main():
 if __name__ == "__main__":
     success = main()
     sys.exit(0 if success else 1)
+

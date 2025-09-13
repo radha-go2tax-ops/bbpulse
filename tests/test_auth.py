@@ -4,14 +4,14 @@ Test cases for authentication functionality.
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
-from blubuspulse.main import app
-from blubuspulse.test_config import get_test_db, create_test_tables, drop_test_tables, TestSettings
-from blubuspulse.models import Operator, OperatorUser
-from blubuspulse.auth.jwt_handler import JWTHandler
+from bbpulse.main import app
+from bbpulse.test_config import get_test_db, create_test_tables, drop_test_tables, TestSettings
+from bbpulse.models import Operator, OperatorUser
+from bbpulse.auth.jwt_handler import JWTHandler
 
 # Override settings for testing
-import blubuspulse.settings
-blubuspulse.settings.settings = TestSettings()
+import bbpulse.settings
+bbpulse.settings.settings = TestSettings()
 
 client = TestClient(app)
 
@@ -222,7 +222,7 @@ def test_change_password_wrong_current(db_session: Session, test_operator_and_us
     assert response.status_code == 400
     assert "incorrect" in response.json()["detail"]
 
-@patch('blubuspulse.tasks.email_tasks.send_password_reset_email.delay')
+@patch('bbpulse.tasks.email_tasks.send_password_reset_email.delay')
 def test_forgot_password(mock_send_email, db_session: Session, test_operator_and_user):
     """Test forgot password functionality."""
     operator, user = test_operator_and_user
@@ -267,3 +267,4 @@ def test_logout(db_session: Session, test_operator_and_user):
 
 if __name__ == "__main__":
     pytest.main([__file__])
+

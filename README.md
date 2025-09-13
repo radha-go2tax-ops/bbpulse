@@ -49,7 +49,7 @@ BluBus Pulse is the backend API service that powers the **BluBus** application e
 
 2. **Clone and navigate to the project**:
    ```bash
-   cd blubuspulse
+   cd bbpulse
    ```
 
 3. **Install dependencies**:
@@ -60,13 +60,13 @@ BluBus Pulse is the backend API service that powers the **BluBus** application e
 4. **Set up MySQL database**:
    ```bash
    # Create database
-   mysql -u root -p -e "CREATE DATABASE blubuspulse;"
+   mysql -u root -p -e "CREATE DATABASE bbpulse;"
    
    # Copy environment configuration
    cp env.example .env
    
    # Edit .env file with your MySQL credentials
-   # DATABASE_URL=mysql+pymysql://username:password@localhost:3306/blubuspulse
+   # DATABASE_URL=mysql+pymysql://username:password@localhost:3306/bbpulse
    ```
 
 5. **Initialize the database**:
@@ -86,7 +86,7 @@ uv run python run.py
 Or using uvicorn directly:
 #  uv run uvicorn main:app --host 0.0.0.0 --port 8000
 ```bash
-uv run uvicorn blubuspulse.main:app --reload --host 0.0.0.0 --port 8000
+uv run uvicorn bbpulse.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 The application will be available at:
@@ -97,7 +97,7 @@ The application will be available at:
 ### Production Mode
 
 ```bash
-uv run uvicorn blubuspulse.main:app --host 0.0.0.0 --port 8000
+uv run uvicorn bbpulse.main:app --host 0.0.0.0 --port 8000
 ```
 
 ## API Endpoints
@@ -178,8 +178,8 @@ uv add --dev package-name
 ## Project Structure
 
 ```
-blubuspulse/
-├── blubuspulse/           # Main package directory
+bbpulse/
+├── bbpulse/           # Main package directory
 │   ├── __init__.py       # Package initialization
 │   ├── main.py           # Main FastAPI application
 │   ├── database.py       # Database configuration and connection
@@ -255,3 +255,4 @@ Available configuration options:
 ## License
 
 This project is licensed under the MIT License.
+

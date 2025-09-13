@@ -69,7 +69,7 @@ def run_health_check():
     print("=" * 30)
     
     try:
-        from blubuspulse.main import app
+        from bbpulse.main import app
         from fastapi.testclient import TestClient
         
         client = TestClient(app)
@@ -110,3 +110,4 @@ if __name__ == "__main__":
         success = run_tests()
     
     sys.exit(0 if success else 1)
+

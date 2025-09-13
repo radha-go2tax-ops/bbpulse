@@ -2,9 +2,9 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from blubuspulse.main import app
-from blubuspulse.database import get_db, Base
-from blubuspulse import models
+from bbpulse.main import app
+from bbpulse.database import get_db, Base
+from bbpulse import models
 
 # Create in-memory test database for faster tests
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
@@ -48,7 +48,7 @@ def test_health_check():
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json()["status"] == "healthy"
-    assert response.json()["service"] == "blubuspulse"
+    assert response.json()["service"] == "bbpulse"
 
 
 def test_get_bus_stops():
@@ -180,3 +180,4 @@ def test_track_bus_not_found():
     response = client.get("/tracking/999")
     assert response.status_code == 404
     assert response.json()["detail"] == "Bus not found"
+

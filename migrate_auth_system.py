@@ -11,8 +11,8 @@ from sqlalchemy.exc import SQLAlchemyError
 # Add the project root to the Python path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from blubuspulse.database import DATABASE_URL, Base
-from blubuspulse.models import User, Organization, OrganizationMembership, OTPRecord, TokenBlacklist
+from bbpulse.database import DATABASE_URL, Base
+from bbpulse.models import User, Organization, OrganizationMembership, OTPRecord, TokenBlacklist
 
 def create_tables():
     """Create all tables for the authentication system."""
@@ -181,9 +181,10 @@ def main():
     
     print("\n🎉 Migration completed successfully!")
     print("\nNext steps:")
-    print("1. Start the FastAPI server: python -m uvicorn blubuspulse.main:app --reload")
+    print("1. Start the FastAPI server: python -m uvicorn bbpulse.main:app --reload")
     print("2. Test the registration system: python test_registration.py")
     print("3. Check the API documentation: http://localhost:8000/docs")
 
 if __name__ == "__main__":
     main()
+

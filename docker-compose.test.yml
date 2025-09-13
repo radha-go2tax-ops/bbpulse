@@ -6,7 +6,7 @@ services:
     image: mysql:8.0
     environment:
       MYSQL_ROOT_PASSWORD: testpassword
-      MYSQL_DATABASE: test_blubuspulse
+      MYSQL_DATABASE: test_bbpulse
     ports:
       - "3307:3306"
     healthcheck:
@@ -28,7 +28,7 @@ services:
   test-app:
     build: .
     environment:
-      - DATABASE_URL=mysql+pymysql://root:testpassword@test-db:3306/test_blubuspulse
+      - DATABASE_URL=mysql+pymysql://root:testpassword@test-db:3306/test_bbpulse
       - REDIS_URL=redis://test-redis:6379/0
       - TESTING=true
     depends_on:
@@ -52,3 +52,4 @@ services:
       - "4566:4566"
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock"
+

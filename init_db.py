@@ -11,8 +11,8 @@ from sqlalchemy.orm import sessionmaker
 # Add the project root to Python path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from blubuspulse.database import DATABASE_URL, Base, engine
-from blubuspulse import models, crud, schemas
+from bbpulse.database import DATABASE_URL, Base, engine
+from bbpulse import models, crud, schemas
 
 def create_database():
     """Create all database tables."""
@@ -208,3 +208,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

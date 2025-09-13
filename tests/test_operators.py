@@ -4,14 +4,14 @@ Test cases for operator management functionality.
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
-from blubuspulse.main import app
-from blubuspulse.test_config import get_test_db, create_test_tables, drop_test_tables, TestSettings
-from blubuspulse.models import Operator, OperatorUser
-from blubuspulse.auth.jwt_handler import JWTHandler
+from bbpulse.main import app
+from bbpulse.test_config import get_test_db, create_test_tables, drop_test_tables, TestSettings
+from bbpulse.models import Operator, OperatorUser
+from bbpulse.auth.jwt_handler import JWTHandler
 
 # Override settings for testing
-import blubuspulse.settings
-blubuspulse.settings.settings = TestSettings()
+import bbpulse.settings
+bbpulse.settings.settings = TestSettings()
 
 client = TestClient(app)
 
@@ -155,3 +155,4 @@ def test_operator_activation_workflow(db_session: Session, test_operator_data, t
 
 if __name__ == "__main__":
     pytest.main([__file__])
+

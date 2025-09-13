@@ -11,8 +11,8 @@ from sqlalchemy.orm import sessionmaker
 # Add the project root to the Python path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from blubuspulse.database import DATABASE_URL
-from blubuspulse.models import User, OTPRecord, Organization, OrganizationMembership
+from bbpulse.database import DATABASE_URL
+from bbpulse.models import User, OTPRecord, Organization, OrganizationMembership
 
 def verify_database():
     """Verify database tables and data."""
@@ -148,7 +148,7 @@ def test_otp_flow():
         db = SessionLocal()
         
         # Create a test OTP record
-        from blubuspulse.models import ContactType
+        from bbpulse.models import ContactType
         from datetime import datetime, timedelta
         
         test_otp = OTPRecord(
@@ -213,8 +213,9 @@ def main():
     print("\n🎉 All database tests passed!")
     print("\nNext steps:")
     print("1. Run the registration verification: python verify_registration.py")
-    print("2. Start the server: python -m uvicorn blubuspulse.main:app --reload")
+    print("2. Start the server: python -m uvicorn bbpulse.main:app --reload")
     print("3. Test the API endpoints manually or with the verification script")
 
 if __name__ == "__main__":
     main()
+

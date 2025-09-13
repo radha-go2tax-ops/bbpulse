@@ -251,7 +251,7 @@ CREATE TABLE token_blacklist (
 ### Environment Variables
 ```bash
 # Database
-DATABASE_URL=postgresql://postgres:password@localhost:5432/blubuspulse
+DATABASE_URL=postgresql://postgres:password@localhost:5432/bbpulse
 
 # JWT
 JWT_SECRET_KEY=your-secret-key-change-in-production
@@ -464,3 +464,4 @@ curl -X POST "http://localhost:8000/auth/login/otp" \
 - Caching strategies
 - Load balancing
 - Microservices architecture
+

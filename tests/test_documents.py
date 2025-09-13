@@ -5,14 +5,14 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 from unittest.mock import patch, MagicMock
-from blubuspulse.main import app
-from blubuspulse.test_config import get_test_db, create_test_tables, drop_test_tables, TestSettings
-from blubuspulse.models import Operator, OperatorUser, OperatorDocument
-from blubuspulse.auth.jwt_handler import JWTHandler
+from bbpulse.main import app
+from bbpulse.test_config import get_test_db, create_test_tables, drop_test_tables, TestSettings
+from bbpulse.models import Operator, OperatorUser, OperatorDocument
+from bbpulse.auth.jwt_handler import JWTHandler
 
 # Override settings for testing
-import blubuspulse.settings
-blubuspulse.settings.settings = TestSettings()
+import bbpulse.settings
+bbpulse.settings.settings = TestSettings()
 
 client = TestClient(app)
 
@@ -72,7 +72,7 @@ def auth_headers(test_operator_and_user):
     tokens = login_response.json()
     return {"Authorization": f"Bearer {tokens['access_token']}"}
 
-@patch('blubuspulse.services.s3_service.S3DocumentService.generate_presigned_post')
+@patch('bbpulse.services.s3_service.S3DocumentService.generate_presigned_post')
 def test_generate_upload_url(mock_presigned_post, db_session, test_operator_and_user, auth_headers):
     """Test generating presigned upload URL."""
     operator, user = test_operator_and_user
@@ -104,9 +104,9 @@ def test_generate_upload_url(mock_presigned_post, db_session, test_operator_and_
     assert "file_key" in data
     assert data["file_key"] == "operators/1/documents/test-file.pdf"
 
-@patch('blubuspulse.services.s3_service.S3DocumentService.check_document_exists')
-@patch('blubuspulse.services.s3_service.S3DocumentService.get_document_metadata')
-@patch('blubuspulse.tasks.document_processing.process_document_upload.delay')
+@patch('bbpulse.services.s3_service.S3DocumentService.check_document_exists')
+@patch('bbpulse.services.s3_service.S3DocumentService.get_document_metadata')
+@patch('bbpulse.tasks.document_processing.process_document_upload.delay')
 def test_register_document(mock_process_task, mock_metadata, mock_exists, 
                           db_session, test_operator_and_user, auth_headers):
     """Test registering uploaded document."""
@@ -144,7 +144,7 @@ def test_register_document_not_found_in_s3(db_session, test_operator_and_user, a
     """Test registering document that doesn't exist in S3."""
     operator, user = test_operator_and_user
     
-    with patch('blubuspulse.services.s3_service.S3DocumentService.check_document_exists') as mock_exists:
+    with patch('bbpulse.services.s3_service.S3DocumentService.check_document_exists') as mock_exists:
         mock_exists.return_value = False
         
         register_request = {
@@ -230,7 +230,7 @@ def test_list_documents_filter_by_type(db_session, test_operator_and_user, auth_
     assert len(data) == 1
     assert data[0]["doc_type"] == "RC"
 
-@patch('blubuspulse.services.s3_service.S3DocumentService.generate_presigned_url')
+@patch('bbpulse.services.s3_service.S3DocumentService.generate_presigned_url')
 def test_get_download_url(mock_presigned_url, db_session, test_operator_and_user, auth_headers):
     """Test getting document download URL."""
     operator, user = test_operator_and_user
@@ -300,3 +300,4 @@ def test_document_access_control(db_session, test_operator_and_user):
 
 if __name__ == "__main__":
     pytest.main([__file__])
+

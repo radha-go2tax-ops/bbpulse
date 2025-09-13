@@ -3,18 +3,18 @@ Test cases for AWS services functionality.
 """
 import pytest
 from unittest.mock import patch, MagicMock
-from blubuspulse.services.s3_service import S3DocumentService
-from blubuspulse.services.email_service import SESEmailService
-from blubuspulse.test_config import TestSettings
+from bbpulse.services.s3_service import S3DocumentService
+from bbpulse.services.email_service import SESEmailService
+from bbpulse.test_config import TestSettings
 
 # Override settings for testing
-import blubuspulse.settings
-blubuspulse.settings.settings = TestSettings()
+import bbpulse.settings
+bbpulse.settings.settings = TestSettings()
 
 class TestS3Service:
     """Test S3 document service."""
     
-    @patch('blubuspulse.services.s3_service.boto3.client')
+    @patch('bbpulse.services.s3_service.boto3.client')
     def test_generate_presigned_post(self, mock_boto_client):
         """Test generating presigned POST URL."""
         # Mock S3 client
@@ -46,7 +46,7 @@ class TestS3Service:
         assert call_args[1]["Bucket"] == "test-bucket"
         assert "operators/1/documents/" in call_args[1]["Key"]
     
-    @patch('blubuspulse.services.s3_service.boto3.client')
+    @patch('bbpulse.services.s3_service.boto3.client')
     def test_generate_presigned_url(self, mock_boto_client):
         """Test generating presigned download URL."""
         mock_s3 = MagicMock()
@@ -59,7 +59,7 @@ class TestS3Service:
         assert result == "https://test-bucket.s3.amazonaws.com/test.pdf?signature=abc123"
         mock_s3.generate_presigned_url.assert_called_once()
     
-    @patch('blubuspulse.services.s3_service.boto3.client')
+    @patch('bbpulse.services.s3_service.boto3.client')
     def test_delete_document(self, mock_boto_client):
         """Test deleting document from S3."""
         mock_s3 = MagicMock()
@@ -74,7 +74,7 @@ class TestS3Service:
             Key="test-file.pdf"
         )
     
-    @patch('blubuspulse.services.s3_service.boto3.client')
+    @patch('bbpulse.services.s3_service.boto3.client')
     def test_get_document_metadata(self, mock_boto_client):
         """Test getting document metadata."""
         mock_s3 = MagicMock()
@@ -96,7 +96,7 @@ class TestS3Service:
         assert result["content_length"] == 1024
         assert result["etag"] == '"abc123"'
     
-    @patch('blubuspulse.services.s3_service.boto3.client')
+    @patch('bbpulse.services.s3_service.boto3.client')
     def test_check_document_exists(self, mock_boto_client):
         """Test checking if document exists."""
         mock_s3 = MagicMock()
@@ -116,7 +116,7 @@ class TestS3Service:
 class TestSESService:
     """Test SES email service."""
     
-    @patch('blubuspulse.services.email_service.boto3.client')
+    @patch('bbpulse.services.email_service.boto3.client')
     def test_send_templated_email(self, mock_boto_client):
         """Test sending templated email."""
         mock_ses = MagicMock()
@@ -134,7 +134,7 @@ class TestSESService:
         assert result == "test-message-id"
         mock_ses.send_templated_email.assert_called_once()
     
-    @patch('blubuspulse.services.email_service.boto3.client')
+    @patch('bbpulse.services.email_service.boto3.client')
     def test_send_simple_email(self, mock_boto_client):
         """Test sending simple email."""
         mock_ses = MagicMock()
@@ -153,7 +153,7 @@ class TestSESService:
         assert result == "test-message-id"
         mock_ses.send_email.assert_called_once()
     
-    @patch('blubuspulse.services.email_service.boto3.client')
+    @patch('bbpulse.services.email_service.boto3.client')
     def test_create_email_template(self, mock_boto_client):
         """Test creating email template."""
         mock_ses = MagicMock()
@@ -170,7 +170,7 @@ class TestSESService:
         assert result is True
         mock_ses.create_template.assert_called_once()
     
-    @patch('blubuspulse.services.email_service.boto3.client')
+    @patch('bbpulse.services.email_service.boto3.client')
     def test_get_send_quota(self, mock_boto_client):
         """Test getting send quota."""
         mock_ses = MagicMock()
@@ -192,10 +192,10 @@ class TestSESService:
 class TestAWSServiceIntegration:
     """Test AWS service integration."""
     
-    @patch('blubuspulse.services.aws_service.boto3.client')
+    @patch('bbpulse.services.aws_service.boto3.client')
     def test_aws_connection_test(self, mock_boto_client):
         """Test AWS connection testing."""
-        from blubuspulse.services.aws_service import AWSService
+        from bbpulse.services.aws_service import AWSService
         
         # Mock successful connections
         mock_s3 = MagicMock()
@@ -210,10 +210,10 @@ class TestAWSServiceIntegration:
         assert result["s3"] == "connected"
         assert result["ses"] == "connected"
     
-    @patch('blubuspulse.services.aws_service.boto3.client')
+    @patch('bbpulse.services.aws_service.boto3.client')
     def test_aws_connection_failure(self, mock_boto_client):
         """Test AWS connection failure handling."""
-        from blubuspulse.services.aws_service import AWSService
+        from bbpulse.services.aws_service import AWSService
         
         # Mock connection failures
         mock_boto_client.side_effect = Exception("Connection failed")
@@ -229,3 +229,4 @@ class TestAWSServiceIntegration:
 
 if __name__ == "__main__":
     pytest.main([__file__])
+
