@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  # Test Database
+  test-db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: testpassword
+      MYSQL_DATABASE: test_blubuspulse
+    ports:
+      - "3307:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  # Test Redis
+  test-redis:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      timeout: 20s
+      retries: 10
+
+  # Test Application
+  test-app:
+    build: .
+    environment:
+      - DATABASE_URL=mysql+pymysql://root:testpassword@test-db:3306/test_blubuspulse
+      - REDIS_URL=redis://test-redis:6379/0
+      - TESTING=true
+    depends_on:
+      test-db:
+        condition: service_healthy
+      test-redis:
+        condition: service_healthy
+    command: python run_tests.py
+    volumes:
+      - .:/app
+    working_dir: /app
+
+  # LocalStack for AWS services testing
+  localstack:
+    image: localstack/localstack:latest
+    environment:
+      - SERVICES=s3,ses,sns,sqs
+      - DEBUG=1
+      - DATA_DIR=/tmp/localstack/data
+    ports:
+      - "4566:4566"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"

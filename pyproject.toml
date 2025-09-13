@@ -1,0 +1,74 @@
+[project]
+name = "blubuspulse"
+version = "0.1.0"
+description = "Backend API service for BluBus application"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "uvicorn[standard]>=0.35.0",
+    "python-multipart>=0.0.20",
+    "sqlalchemy>=2.0.43",
+    "pymysql>=1.1.2",
+    "alembic>=1.16.5",
+    "python-dotenv>=1.1.1",
+    "cryptography>=45.0.7",
+    "boto3>=1.35.0",
+    "celery>=5.3.0",
+    "redis>=5.0.0",
+    "pydantic-settings>=2.0.0",
+    "python-jose[cryptography]>=3.3.0",
+    "passlib[bcrypt]>=1.7.4",
+    "pymongo>=4.6.0",
+    "python-json-logger>=2.0.0",
+    "email-validator>=2.3.0",
+    "fastapi>=0.116.1",
+]
+
+[project.scripts]
+blubuspulse = "blubuspulse.main:app"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.4.2",
+    "pytest-asyncio>=1.1.0",
+    "httpx>=0.28.1",
+    "black>=25.1.0",
+    "isort>=6.0.1",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.black]
+line-length = 88
+target-version = ['py313']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 88
+known_first_party = ["blubuspulse"]
+
+[dependency-groups]
+dev = [
+    "black>=25.1.0",
+    "httpx>=0.28.1",
+    "isort>=6.0.1",
+    "pytest>=8.4.2",
+    "pytest-asyncio>=1.1.0",
+]
