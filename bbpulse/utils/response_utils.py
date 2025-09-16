@@ -18,11 +18,16 @@ def create_meta_info(
     pagination: Optional[Dict[str, Any]] = None
 ) -> MetaInfo:
     """Create metadata for API responses."""
-    return MetaInfo(
-        requestId=request_id or generate_request_id(),
-        timestamp=datetime.utcnow().isoformat() + "Z",
-        pagination=pagination
-    )
+    meta_data = {
+        "requestId": request_id or generate_request_id(),
+        "timestamp": datetime.utcnow().isoformat() + "Z"
+    }
+    
+    # Only include pagination if it's provided
+    if pagination is not None:
+        meta_data["pagination"] = pagination
+    
+    return MetaInfo(**meta_data)
 
 
 def create_success_response(
@@ -71,7 +76,7 @@ def raise_http_exception(
     )
     raise HTTPException(
         status_code=status_code,
-        detail=error_response.dict()
+        detail=error_response.model_dump(exclude_none=True)
     )
 
 

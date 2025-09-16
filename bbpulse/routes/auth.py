@@ -74,50 +74,6 @@ async def login(
         )
 
 
-@router.post("/refresh", response_model=Token)
-async def refresh_token(
-    refresh_token: str,
-    db: Session = Depends(get_db)
-):
-    """Refresh access token using refresh token."""
-    try:
-        # Verify refresh token
-        payload = jwt_handler.verify_token(refresh_token, "refresh")
-        if not payload:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid refresh token"
-            )
-        
-        user_id = payload.get("user_id")
-        if not user_id:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid refresh token"
-            )
-        
-        # Get user from database
-        user = db.query(OperatorUser).filter(OperatorUser.id == user_id).first()
-        if not user or not user.is_active:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="User not found or inactive"
-            )
-        
-        # Create new token pair
-        tokens = jwt_handler.create_token_pair(user.id, user.operator_id)
-        
-        logger.info(f"Tokens refreshed for user {user.id}")
-        return tokens
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Token refresh error: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Token refresh failed"
-        )
 
 
 @router.get("/me", response_model=UserResponse)

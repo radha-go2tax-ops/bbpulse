@@ -762,19 +762,13 @@ async def refresh_token(
                 data=tokens
             )
         else:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid or expired refresh token"
-            )
+            raise_authentication_error("Invalid or expired refresh token")
             
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Token refresh error: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Token refresh failed"
-        )
+        raise_server_error("Token refresh failed")
 
 
 @router.post("/logout", response_model=LogoutResponse)

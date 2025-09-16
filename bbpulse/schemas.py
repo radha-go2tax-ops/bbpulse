@@ -22,6 +22,11 @@ class MetaInfo(BaseModel):
         json_encoders = {
             datetime: lambda v: v.isoformat()
         }
+        
+    def model_dump(self, **kwargs):
+        """Override model_dump to exclude None values."""
+        kwargs.setdefault('exclude_none', True)
+        return super().model_dump(**kwargs)
 
 
 class ErrorDetail(BaseModel):
