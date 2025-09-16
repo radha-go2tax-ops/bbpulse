@@ -264,6 +264,205 @@ class OperatorResponse(Operator):
     users: List["User"] = Field(default_factory=list)
 
 
+# Standardized List Response Schemas
+class OperatorsListResponse(BaseResponse):
+    """Standardized response for operators list endpoints."""
+    status: str = "success"
+    data: List[OperatorResponse] = Field(default_factory=list)
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "status": "success",
+                "code": 200,
+                "data": [
+                    {
+                        "id": 12,
+                        "company_name": "Mumbai Bus Services",
+                        "contact_email": "operator@example.com",
+                        "contact_phone": "+919731990033",
+                        "business_license": "BL123456789",
+                        "address": "123 Main Street, Andheri",
+                        "city": "Mumbai",
+                        "state": "Maharashtra",
+                        "country": "India",
+                        "postal_code": "400001",
+                        "status": "PENDING",
+                        "verification_notes": None,
+                        "created_at": "2024-01-16T10:12:02.998989+05:30",
+                        "updated_at": None,
+                        "verified_at": None,
+                        "documents": [],
+                        "users": [
+                            {
+                                "id": 8,
+                                "email": "operator@example.com",
+                                "first_name": "Operator",
+                                "last_name": "Admin",
+                                "role": "ADMIN",
+                                "operator_id": 12,
+                                "is_active": True
+                            }
+                        ]
+                    }
+                ],
+                "meta": {
+                    "requestId": "f29dbe3c-1234-4567-8901-abcdef123456",
+                    "timestamp": "2024-01-16T10:12:02.998989+05:30",
+                    "pagination": {
+                        "page": 1,
+                        "pageSize": 100,
+                        "total": 1
+                    }
+                }
+            }
+        }
+
+
+class UsersListResponse(BaseResponse):
+    """Standardized response for users list endpoints."""
+    status: str = "success"
+    data: List["User"] = Field(default_factory=list)
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "status": "success",
+                "code": 200,
+                "data": [
+                    {
+                        "id": 8,
+                        "email": "operator@example.com",
+                        "first_name": "Operator",
+                        "last_name": "Admin",
+                        "role": "ADMIN",
+                        "operator_id": 12,
+                        "is_active": True
+                    },
+                    {
+                        "id": 9,
+                        "email": "manager@example.com",
+                        "first_name": "Manager",
+                        "last_name": "User",
+                        "role": "MANAGER",
+                        "operator_id": 12,
+                        "is_active": True
+                    }
+                ],
+                "meta": {
+                    "requestId": "f29dbe3c-1234-4567-8901-abcdef123456",
+                    "timestamp": "2024-01-16T10:12:02.998989+05:30",
+                    "pagination": {
+                        "page": 1,
+                        "pageSize": 50,
+                        "total": 2
+                    }
+                }
+            }
+        }
+
+
+class DocumentsListResponse(BaseResponse):
+    """Standardized response for documents list endpoints."""
+    status: str = "success"
+    data: List["OperatorDocument"] = Field(default_factory=list)
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "status": "success",
+                "code": 200,
+                "data": [
+                    {
+                        "id": 1,
+                        "operator_id": 12,
+                        "doc_type": "BUSINESS_LICENSE",
+                        "file_name": "business_license.pdf",
+                        "file_size": 1024000,
+                        "content_type": "application/pdf",
+                        "file_key": "documents/12/business_license_20240116.pdf",
+                        "status": "VERIFIED",
+                        "uploaded_at": "2024-01-16T10:00:00Z",
+                        "verified_at": "2024-01-16T10:30:00Z",
+                        "expiry_date": "2025-01-16T10:00:00Z",
+                        "uploaded_by": "admin@example.com"
+                    }
+                ],
+                "meta": {
+                    "requestId": "f29dbe3c-1234-4567-8901-abcdef123456",
+                    "timestamp": "2024-01-16T10:12:02.998989+05:30",
+                    "pagination": {
+                        "page": 1,
+                        "pageSize": 50,
+                        "total": 1
+                    }
+                }
+            }
+        }
+
+
+class RequiredDocumentsListResponse(BaseResponse):
+    """Standardized response for required documents list endpoints."""
+    status: str = "success"
+    data: List[Dict[str, Any]] = Field(default_factory=list)
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "status": "success",
+                "code": 200,
+                "data": [
+                    {
+                        "type": "RC",
+                        "name": "Registration Certificate",
+                        "required": True,
+                        "status": "VERIFIED",
+                        "uploaded": True
+                    },
+                    {
+                        "type": "PERMIT",
+                        "name": "Operating Permit",
+                        "required": True,
+                        "status": "PENDING",
+                        "uploaded": True
+                    },
+                    {
+                        "type": "INSURANCE",
+                        "name": "Insurance Certificate",
+                        "required": True,
+                        "status": "NOT_UPLOADED",
+                        "uploaded": False
+                    },
+                    {
+                        "type": "TAX_CERTIFICATE",
+                        "name": "Tax Clearance Certificate",
+                        "required": True,
+                        "status": "NOT_UPLOADED",
+                        "uploaded": False
+                    },
+                    {
+                        "type": "PAN_CARD",
+                        "name": "PAN Card",
+                        "required": False,
+                        "status": "VERIFIED",
+                        "uploaded": True
+                    },
+                    {
+                        "type": "GST_CERTIFICATE",
+                        "name": "GST Certificate",
+                        "required": False,
+                        "status": "NOT_UPLOADED",
+                        "uploaded": False
+                    }
+                ],
+                "meta": {
+                    "requestId": "f29dbe3c-1234-4567-8901-abcdef123456",
+                    "timestamp": "2024-01-16T10:12:02.998989+05:30"
+                }
+            }
+        }
+
+
 # Document Management Schemas
 class DocumentUploadRequest(BaseModel):
     filename: str = Field(..., max_length=255)

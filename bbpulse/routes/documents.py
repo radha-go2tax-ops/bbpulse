@@ -9,11 +9,16 @@ from ..database import get_db
 from ..models import Operator, OperatorDocument, OperatorUser
 from ..schemas import (
     DocumentUploadRequest, PresignResponse, DocumentRegisterRequest,
-    OperatorDocument, OperatorDocumentUpdate
+    OperatorDocument, OperatorDocumentUpdate, DocumentsListResponse,
+    RequiredDocumentsListResponse
 )
 from ..auth.dependencies import get_current_user, get_current_operator_user
 from ..services.s3_service import S3DocumentService
 from ..tasks.document_processing import process_document_upload, delete_document_from_s3
+from ..utils.response_utils import (
+    create_success_response, raise_validation_error, raise_authorization_error,
+    raise_server_error
+)
 import logging
 
 logger = logging.getLogger(__name__)
@@ -131,7 +136,94 @@ async def register_document(
         )
 
 
-@router.get("/operators/{operator_id}", response_model=List[OperatorDocument])
+@router.get(
+    "/operators/{operator_id}", 
+    response_model=DocumentsListResponse,
+    responses={
+        200: {
+            "description": "List of operator documents retrieved successfully",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "status": "success",
+                        "code": 200,
+                        "data": [
+                            {
+                                "id": 1,
+                                "operator_id": 12,
+                                "doc_type": "BUSINESS_LICENSE",
+                                "file_name": "business_license.pdf",
+                                "file_size": 1024000,
+                                "content_type": "application/pdf",
+                                "file_key": "documents/12/business_license_20240116.pdf",
+                                "status": "VERIFIED",
+                                "uploaded_at": "2024-01-16T10:00:00Z",
+                                "verified_at": "2024-01-16T10:30:00Z",
+                                "expiry_date": "2025-01-16T10:00:00Z",
+                                "uploaded_by": "admin@example.com"
+                            },
+                            {
+                                "id": 2,
+                                "operator_id": 12,
+                                "doc_type": "INSURANCE_CERTIFICATE",
+                                "file_name": "insurance_cert.pdf",
+                                "file_size": 512000,
+                                "content_type": "application/pdf",
+                                "file_key": "documents/12/insurance_cert_20240116.pdf",
+                                "status": "PENDING",
+                                "uploaded_at": "2024-01-16T11:00:00Z",
+                                "verified_at": None,
+                                "expiry_date": "2025-06-16T11:00:00Z",
+                                "uploaded_by": "manager@example.com"
+                            }
+                        ],
+                        "meta": {
+                            "requestId": "f29dbe3c-1234-4567-8901-abcdef123456",
+                            "timestamp": "2024-01-16T10:12:02.998989+05:30",
+                            "pagination": {
+                                "page": 1,
+                                "pageSize": 50,
+                                "total": 2
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        401: {
+            "description": "Authentication required",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "status": "error",
+                        "code": 401,
+                        "message": "Authentication required",
+                        "meta": {
+                            "requestId": "f29dbe3c-1234-4567-8901-abcdef123456",
+                            "timestamp": "2024-01-16T10:12:02.998989+05:30"
+                        }
+                    }
+                }
+            }
+        },
+        403: {
+            "description": "Access denied",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "status": "error",
+                        "code": 403,
+                        "message": "Access denied",
+                        "meta": {
+                            "requestId": "f29dbe3c-1234-4567-8901-abcdef123456",
+                            "timestamp": "2024-01-16T10:12:02.998989+05:30"
+                        }
+                    }
+                }
+            }
+        }
+    }
+)
 async def list_operator_documents(
     operator_id: int,
     doc_type: Optional[str] = Query(None, description="Filter by document type"),
@@ -139,24 +231,87 @@ async def list_operator_documents(
     db: Session = Depends(get_db),
     current_user: OperatorUser = Depends(get_current_operator_user)
 ):
-    """List documents for an operator."""
-    # Check if user has access to this operator
-    if current_user.operator_id != operator_id and current_user.role != "ADMIN":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied"
+    """
+    List documents for an operator.
+    
+    This endpoint returns a list of documents associated with a specific operator.
+    It supports filtering by document type and status. Only users with access to the operator
+    (same operator_id or ADMIN role) can view this list.
+    
+    **Path Parameters:**
+    - `operator_id` (integer): The ID of the operator
+    
+    **Query Parameters:**
+    - `doc_type` (string, optional): Filter by document type (e.g., "BUSINESS_LICENSE", "INSURANCE_CERTIFICATE")
+    - `status` (string, optional): Filter by status (e.g., "PENDING", "VERIFIED", "REJECTED")
+    
+    **Response:**
+    - `status` (string): "success"
+    - `code` (integer): HTTP status code (200)
+    - `data` (array): List of document objects with complete details
+    - `meta` (object): Request metadata with pagination information
+    
+    **Example Request:**
+    ```
+    GET /documents/operators/12?doc_type=BUSINESS_LICENSE&status=VERIFIED
+    ```
+    
+    **Example Success Response:**
+    ```json
+    {
+        "status": "success",
+        "code": 200,
+        "data": [
+            {
+                "id": 1,
+                "operator_id": 12,
+                "doc_type": "BUSINESS_LICENSE",
+                "file_name": "business_license.pdf",
+                "file_size": 1024000,
+                "content_type": "application/pdf",
+                "file_key": "documents/12/business_license_20240116.pdf",
+                "status": "VERIFIED",
+                "uploaded_at": "2024-01-16T10:00:00Z",
+                "verified_at": "2024-01-16T10:30:00Z",
+                "expiry_date": "2025-01-16T10:00:00Z",
+                "uploaded_by": "admin@example.com"
+            }
+        ],
+        "meta": {
+            "requestId": "f29dbe3c-1234-4567-8901-abcdef123456",
+            "timestamp": "2024-01-16T10:12:02.998989+05:30",
+            "pagination": {
+                "page": 1,
+                "pageSize": 50,
+                "total": 1
+            }
+        }
+    }
+    ```
+    """
+    try:
+        # Check if user has access to this operator
+        if current_user.operator_id != operator_id and current_user.role != "ADMIN":
+            raise_authorization_error("Access denied")
+        
+        query = db.query(OperatorDocument).filter(OperatorDocument.operator_id == operator_id)
+        
+        if doc_type:
+            query = query.filter(OperatorDocument.doc_type == doc_type)
+        
+        if status:
+            query = query.filter(OperatorDocument.status == status)
+        
+        documents = query.order_by(OperatorDocument.uploaded_at.desc()).all()
+        
+        return create_success_response(
+            data=documents,
+            code=200
         )
-    
-    query = db.query(OperatorDocument).filter(OperatorDocument.operator_id == operator_id)
-    
-    if doc_type:
-        query = query.filter(OperatorDocument.doc_type == doc_type)
-    
-    if status:
-        query = query.filter(OperatorDocument.status == status)
-    
-    documents = query.order_by(OperatorDocument.uploaded_at.desc()).all()
-    return documents
+        
+    except Exception as e:
+        logger.error(f"Error listing operator documents: {e}")
+        raise_server_error("Failed to retrieve operator documents list")
 
 
 @router.get("/{document_id}", response_model=OperatorDocument)
@@ -303,42 +458,205 @@ async def delete_document(
         )
 
 
-@router.get("/operators/{operator_id}/required", response_model=List[dict])
+@router.get(
+    "/operators/{operator_id}/required", 
+    response_model=RequiredDocumentsListResponse,
+    responses={
+        200: {
+            "description": "List of required documents retrieved successfully",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "status": "success",
+                        "code": 200,
+                        "data": [
+                            {
+                                "type": "RC",
+                                "name": "Registration Certificate",
+                                "required": True,
+                                "status": "VERIFIED",
+                                "uploaded": True
+                            },
+                            {
+                                "type": "PERMIT",
+                                "name": "Operating Permit",
+                                "required": True,
+                                "status": "PENDING",
+                                "uploaded": True
+                            },
+                            {
+                                "type": "INSURANCE",
+                                "name": "Insurance Certificate",
+                                "required": True,
+                                "status": "NOT_UPLOADED",
+                                "uploaded": False
+                            },
+                            {
+                                "type": "TAX_CERTIFICATE",
+                                "name": "Tax Clearance Certificate",
+                                "required": True,
+                                "status": "NOT_UPLOADED",
+                                "uploaded": False
+                            },
+                            {
+                                "type": "PAN_CARD",
+                                "name": "PAN Card",
+                                "required": False,
+                                "status": "VERIFIED",
+                                "uploaded": True
+                            },
+                            {
+                                "type": "GST_CERTIFICATE",
+                                "name": "GST Certificate",
+                                "required": False,
+                                "status": "NOT_UPLOADED",
+                                "uploaded": False
+                            }
+                        ],
+                        "meta": {
+                            "requestId": "f29dbe3c-1234-4567-8901-abcdef123456",
+                            "timestamp": "2024-01-16T10:12:02.998989+05:30"
+                        }
+                    }
+                }
+            }
+        },
+        401: {
+            "description": "Authentication required",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "status": "error",
+                        "code": 401,
+                        "message": "Authentication required",
+                        "meta": {
+                            "requestId": "f29dbe3c-1234-4567-8901-abcdef123456",
+                            "timestamp": "2024-01-16T10:12:02.998989+05:30"
+                        }
+                    }
+                }
+            }
+        },
+        403: {
+            "description": "Access denied",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "status": "error",
+                        "code": 403,
+                        "message": "Access denied",
+                        "meta": {
+                            "requestId": "f29dbe3c-1234-4567-8901-abcdef123456",
+                            "timestamp": "2024-01-16T10:12:02.998989+05:30"
+                        }
+                    }
+                }
+            }
+        }
+    }
+)
 async def get_required_documents(
     operator_id: int,
     db: Session = Depends(get_db),
     current_user: OperatorUser = Depends(get_current_operator_user)
 ):
-    """Get list of required documents for operator."""
-    # Check if user has access to this operator
-    if current_user.operator_id != operator_id and current_user.role != "ADMIN":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied"
+    """
+    Get list of required documents for operator.
+    
+    This endpoint returns a list of all required document types for an operator,
+    along with their current status (uploaded/not uploaded, verified/pending).
+    Only users with access to the operator (same operator_id or ADMIN role) can view this list.
+    
+    **Path Parameters:**
+    - `operator_id` (integer): The ID of the operator
+    
+    **Response:**
+    - `status` (string): "success"
+    - `code` (integer): HTTP status code (200)
+    - `data` (array): List of required document objects with status information
+    - `meta` (object): Request metadata with requestId and timestamp
+    
+    **Document Object Fields:**
+    - `type` (string): Document type identifier
+    - `name` (string): Human-readable document name
+    - `required` (boolean): Whether this document is mandatory
+    - `status` (string): Current status (VERIFIED, PENDING, NOT_UPLOADED)
+    - `uploaded` (boolean): Whether the document has been uploaded
+    
+    **Example Request:**
+    ```
+    GET /documents/operators/12/required
+    ```
+    
+    **Example Success Response:**
+    ```json
+    {
+        "status": "success",
+        "code": 200,
+        "data": [
+            {
+                "type": "RC",
+                "name": "Registration Certificate",
+                "required": true,
+                "status": "VERIFIED",
+                "uploaded": true
+            },
+            {
+                "type": "PERMIT",
+                "name": "Operating Permit",
+                "required": true,
+                "status": "PENDING",
+                "uploaded": true
+            },
+            {
+                "type": "INSURANCE",
+                "name": "Insurance Certificate",
+                "required": true,
+                "status": "NOT_UPLOADED",
+                "uploaded": false
+            }
+        ],
+        "meta": {
+            "requestId": "f29dbe3c-1234-4567-8901-abcdef123456",
+            "timestamp": "2024-01-16T10:12:02.998989+05:30"
+        }
+    }
+    ```
+    """
+    try:
+        # Check if user has access to this operator
+        if current_user.operator_id != operator_id and current_user.role != "ADMIN":
+            raise_authorization_error("Access denied")
+        
+        # Define required document types
+        required_docs = [
+            {"type": "RC", "name": "Registration Certificate", "required": True},
+            {"type": "PERMIT", "name": "Operating Permit", "required": True},
+            {"type": "INSURANCE", "name": "Insurance Certificate", "required": True},
+            {"type": "TAX_CERTIFICATE", "name": "Tax Clearance Certificate", "required": True},
+            {"type": "PAN_CARD", "name": "PAN Card", "required": False},
+            {"type": "GST_CERTIFICATE", "name": "GST Certificate", "required": False}
+        ]
+        
+        # Get uploaded documents
+        uploaded_docs = db.query(OperatorDocument).filter(
+            OperatorDocument.operator_id == operator_id
+        ).all()
+        
+        # Create status map
+        doc_status = {doc.doc_type: doc.status for doc in uploaded_docs}
+        
+        # Add status to required docs
+        for doc in required_docs:
+            doc["status"] = doc_status.get(doc["type"], "NOT_UPLOADED")
+            doc["uploaded"] = doc["type"] in doc_status
+        
+        return create_success_response(
+            data=required_docs,
+            code=200
         )
-    
-    # Define required document types
-    required_docs = [
-        {"type": "RC", "name": "Registration Certificate", "required": True},
-        {"type": "PERMIT", "name": "Operating Permit", "required": True},
-        {"type": "INSURANCE", "name": "Insurance Certificate", "required": True},
-        {"type": "TAX_CERTIFICATE", "name": "Tax Clearance Certificate", "required": True},
-        {"type": "PAN_CARD", "name": "PAN Card", "required": False},
-        {"type": "GST_CERTIFICATE", "name": "GST Certificate", "required": False}
-    ]
-    
-    # Get uploaded documents
-    uploaded_docs = db.query(OperatorDocument).filter(
-        OperatorDocument.operator_id == operator_id
-    ).all()
-    
-    # Create status map
-    doc_status = {doc.doc_type: doc.status for doc in uploaded_docs}
-    
-    # Add status to required docs
-    for doc in required_docs:
-        doc["status"] = doc_status.get(doc["type"], "NOT_UPLOADED")
-        doc["uploaded"] = doc["type"] in doc_status
-    
-    return required_docs
+        
+    except Exception as e:
+        logger.error(f"Error getting required documents: {e}")
+        raise_server_error("Failed to retrieve required documents list")
 

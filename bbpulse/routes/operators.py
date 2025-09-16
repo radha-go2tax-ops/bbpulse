@@ -7,8 +7,8 @@ from typing import List, Optional
 from ..database import get_db
 from ..models import Operator, OperatorUser, User
 from ..schemas import (
-    OperatorCreate, OperatorUpdate, OperatorResponse, 
-    UserCreate, UserResponse, UserUpdate,
+    OperatorCreate, OperatorUpdate, OperatorResponse, OperatorsListResponse,
+    UserCreate, UserResponse, UserUpdate, UsersListResponse,
     OperatorRegistrationRequest, OperatorRegistrationResponse,
     OperatorUserCreate
 )
@@ -135,7 +135,79 @@ async def update_operator(
     return operator
 
 
-@router.get("/", response_model=List[OperatorResponse])
+@router.get(
+    "/", 
+    response_model=OperatorsListResponse,
+    responses={
+        200: {
+            "description": "List of operators retrieved successfully",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "status": "success",
+                        "code": 200,
+                        "data": [
+                            {
+                                "id": 12,
+                                "company_name": "Mumbai Bus Services",
+                                "contact_email": "operator@example.com",
+                                "contact_phone": "+919731990033",
+                                "business_license": "BL123456789",
+                                "address": "123 Main Street, Andheri",
+                                "city": "Mumbai",
+                                "state": "Maharashtra",
+                                "country": "India",
+                                "postal_code": "400001",
+                                "status": "PENDING",
+                                "verification_notes": None,
+                                "created_at": "2024-01-16T10:12:02.998989+05:30",
+                                "updated_at": None,
+                                "verified_at": None,
+                                "documents": [],
+                                "users": [
+                                    {
+                                        "id": 8,
+                                        "email": "operator@example.com",
+                                        "first_name": "Operator",
+                                        "last_name": "Admin",
+                                        "role": "ADMIN",
+                                        "operator_id": 12,
+                                        "is_active": True
+                                    }
+                                ]
+                            }
+                        ],
+                        "meta": {
+                            "requestId": "f29dbe3c-1234-4567-8901-abcdef123456",
+                            "timestamp": "2024-01-16T10:12:02.998989+05:30",
+                            "pagination": {
+                                "page": 1,
+                                "pageSize": 100,
+                                "total": 1
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        401: {
+            "description": "Authentication required",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "status": "error",
+                        "code": 401,
+                        "message": "Authentication required",
+                        "meta": {
+                            "requestId": "f29dbe3c-1234-4567-8901-abcdef123456",
+                            "timestamp": "2024-01-16T10:12:02.998989+05:30"
+                        }
+                    }
+                }
+            }
+        }
+    }
+)
 async def list_operators(
     skip: int = 0,
     limit: int = 100,
@@ -144,24 +216,180 @@ async def list_operators(
     db: Session = Depends(get_db),
     current_user: OperatorUser = Depends(get_current_operator_user)
 ):
-    """List all operators (operator users only)."""
-    query = db.query(Operator)
+    """
+    List all operators (operator users only).
     
-    if status:
-        query = query.filter(Operator.status == status)
+    This endpoint returns a paginated list of operators that can be viewed by authenticated operator users.
+    It supports filtering by status and searching by company name, phone, or email.
     
-    if search:
-        query = query.filter(
-            Operator.company_name.ilike(f"%{search}%") |
-            Operator.contact_phone.ilike(f"%{search}%") |
-            Operator.contact_email.ilike(f"%{search}%")
+    **Query Parameters:**
+    - `skip` (integer, optional): Number of records to skip for pagination (default: 0)
+    - `limit` (integer, optional): Maximum number of records to return (default: 100, max: 1000)
+    - `status` (string, optional): Filter by operator status (PENDING, ACTIVE, SUSPENDED, REJECTED)
+    - `search` (string, optional): Search by company name, phone number, or email
+    
+    **Response:**
+    - `status` (string): "success"
+    - `code` (integer): HTTP status code (200)
+    - `data` (array): List of operator objects with complete details
+    - `meta` (object): Request metadata with pagination information
+    
+    **Example Request:**
+    ```
+    GET /operators/?search=Mumbai&status=PENDING&skip=0&limit=50
+    ```
+    
+    **Example Success Response:**
+    ```json
+    {
+        "status": "success",
+        "code": 200,
+        "data": [
+            {
+                "id": 12,
+                "company_name": "Mumbai Bus Services",
+                "contact_email": "operator@example.com",
+                "contact_phone": "+919731990033",
+                "business_license": "BL123456789",
+                "address": "123 Main Street, Andheri",
+                "city": "Mumbai",
+                "state": "Maharashtra",
+                "country": "India",
+                "postal_code": "400001",
+                "status": "PENDING",
+                "verification_notes": null,
+                "created_at": "2024-01-16T10:12:02.998989+05:30",
+                "updated_at": null,
+                "verified_at": null,
+                "documents": [],
+                "users": [
+                    {
+                        "id": 8,
+                        "email": "operator@example.com",
+                        "first_name": "Operator",
+                        "last_name": "Admin",
+                        "role": "ADMIN",
+                        "operator_id": 12,
+                        "is_active": true
+                    }
+                ]
+            }
+        ],
+        "meta": {
+            "requestId": "f29dbe3c-1234-4567-8901-abcdef123456",
+            "timestamp": "2024-01-16T10:12:02.998989+05:30",
+            "pagination": {
+                "page": 1,
+                "pageSize": 100,
+                "total": 1
+            }
+        }
+    }
+    ```
+    """
+    try:
+        query = db.query(Operator)
+        
+        if status:
+            query = query.filter(Operator.status == status)
+        
+        if search:
+            query = query.filter(
+                Operator.company_name.ilike(f"%{search}%") |
+                Operator.contact_phone.ilike(f"%{search}%") |
+                Operator.contact_email.ilike(f"%{search}%")
+            )
+        
+        # Get total count for pagination
+        total = query.count()
+        
+        # Get paginated results
+        operators = query.offset(skip).limit(limit).all()
+        
+        # Calculate pagination info
+        page = (skip // limit) + 1 if limit > 0 else 1
+        
+        return create_success_response(
+            data=operators,
+            code=200,
+            pagination={
+                "page": page,
+                "pageSize": limit,
+                "total": total
+            }
         )
-    
-    operators = query.offset(skip).limit(limit).all()
-    return operators
+        
+    except Exception as e:
+        logger.error(f"Error listing operators: {e}")
+        raise_server_error("Failed to retrieve operators list")
 
 
-@router.get("/public", response_model=List[OperatorResponse])
+@router.get(
+    "/public", 
+    response_model=OperatorsListResponse,
+    responses={
+        200: {
+            "description": "List of active operators retrieved successfully",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "status": "success",
+                        "code": 200,
+                        "data": [
+                            {
+                                "id": 1,
+                                "company_name": "Mumbai Bus Services",
+                                "contact_email": "mumbai@example.com",
+                                "contact_phone": "+919876543210",
+                                "business_license": "BL123456789",
+                                "address": "123 Main Street, Andheri",
+                                "city": "Mumbai",
+                                "state": "Maharashtra",
+                                "country": "India",
+                                "postal_code": "400001",
+                                "status": "ACTIVE",
+                                "verification_notes": None,
+                                "created_at": "2024-01-01T10:00:00Z",
+                                "updated_at": None,
+                                "verified_at": "2024-01-01T10:30:00Z",
+                                "documents": [],
+                                "users": []
+                            },
+                            {
+                                "id": 2,
+                                "company_name": "Delhi Transport Co",
+                                "contact_email": "delhi@example.com",
+                                "contact_phone": "+919876543211",
+                                "business_license": "BL987654321",
+                                "address": "456 Connaught Place, Delhi",
+                                "city": "Delhi",
+                                "state": "Delhi",
+                                "country": "India",
+                                "postal_code": "110001",
+                                "status": "ACTIVE",
+                                "verification_notes": None,
+                                "created_at": "2024-01-01T11:00:00Z",
+                                "updated_at": None,
+                                "verified_at": "2024-01-01T11:30:00Z",
+                                "documents": [],
+                                "users": []
+                            }
+                        ],
+                        "meta": {
+                            "requestId": "f29dbe3c-1234-4567-8901-abcdef123456",
+                            "timestamp": "2024-01-16T10:12:02.998989+05:30",
+                            "pagination": {
+                                "page": 1,
+                                "pageSize": 50,
+                                "total": 2
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+)
 async def list_operators_public(
     skip: int = 0,
     limit: int = 50,
@@ -172,18 +400,21 @@ async def list_operators_public(
     """
     List active operators (public endpoint).
     
-    This endpoint returns a list of active operators that can be viewed by anyone.
-    It supports pagination, filtering by status, and searching by company name, city, or state.
+    This endpoint returns a paginated list of active operators that can be viewed by anyone.
+    It supports filtering by status and searching by company name, city, or state.
+    This is a public endpoint that doesn't require authentication.
     
     **Query Parameters:**
-    - `skip` (integer, optional): Number of records to skip (default: 0)
+    - `skip` (integer, optional): Number of records to skip for pagination (default: 0)
     - `limit` (integer, optional): Maximum number of records to return (default: 50, max: 100)
     - `status` (string, optional): Filter by operator status (default: "ACTIVE")
     - `search` (string, optional): Search by company name, city, or state
     
     **Response:**
-    - Array of operator objects with basic information
-    - Each operator includes: id, company_name, contact_phone, status, city, state, created_at
+    - `status` (string): "success"
+    - `code` (integer): HTTP status code (200)
+    - `data` (array): List of operator objects with complete details
+    - `meta` (object): Request metadata with pagination information
     
     **Example Request:**
     ```
@@ -192,26 +423,40 @@ async def list_operators_public(
     
     **Example Success Response:**
     ```json
-    [
-        {
-            "id": 1,
-            "company_name": "Mumbai Bus Services",
-            "contact_phone": "+919876543210",
-            "status": "ACTIVE",
-            "city": "Mumbai",
-            "state": "Maharashtra",
-            "created_at": "2024-01-01T10:00:00Z"
-        },
-        {
-            "id": 2,
-            "company_name": "Delhi Transport Co",
-            "contact_phone": "+919876543211",
-            "status": "ACTIVE",
-            "city": "Delhi",
-            "state": "Delhi",
-            "created_at": "2024-01-01T11:00:00Z"
+    {
+        "status": "success",
+        "code": 200,
+        "data": [
+            {
+                "id": 1,
+                "company_name": "Mumbai Bus Services",
+                "contact_email": "mumbai@example.com",
+                "contact_phone": "+919876543210",
+                "business_license": "BL123456789",
+                "address": "123 Main Street, Andheri",
+                "city": "Mumbai",
+                "state": "Maharashtra",
+                "country": "India",
+                "postal_code": "400001",
+                "status": "ACTIVE",
+                "verification_notes": null,
+                "created_at": "2024-01-01T10:00:00Z",
+                "updated_at": null,
+                "verified_at": "2024-01-01T10:30:00Z",
+                "documents": [],
+                "users": []
+            }
+        ],
+        "meta": {
+            "requestId": "f29dbe3c-1234-4567-8901-abcdef123456",
+            "timestamp": "2024-01-16T10:12:02.998989+05:30",
+            "pagination": {
+                "page": 1,
+                "pageSize": 50,
+                "total": 1
+            }
         }
-    ]
+    }
     ```
     
     **Example Request with Search:**
@@ -224,23 +469,44 @@ async def list_operators_public(
     GET /operators/public?skip=20&limit=10
     ```
     """
-    query = db.query(Operator)
-    
-    # Only show active operators for public access
-    if status:
-        query = query.filter(Operator.status == status)
-    else:
-        query = query.filter(Operator.status == "ACTIVE")
-    
-    if search:
-        query = query.filter(
-            Operator.company_name.ilike(f"%{search}%") |
-            Operator.city.ilike(f"%{search}%") |
-            Operator.state.ilike(f"%{search}%")
+    try:
+        query = db.query(Operator)
+        
+        # Only show active operators for public access
+        if status:
+            query = query.filter(Operator.status == status)
+        else:
+            query = query.filter(Operator.status == "ACTIVE")
+        
+        if search:
+            query = query.filter(
+                Operator.company_name.ilike(f"%{search}%") |
+                Operator.city.ilike(f"%{search}%") |
+                Operator.state.ilike(f"%{search}%")
+            )
+        
+        # Get total count for pagination
+        total = query.count()
+        
+        # Get paginated results
+        operators = query.offset(skip).limit(limit).all()
+        
+        # Calculate pagination info
+        page = (skip // limit) + 1 if limit > 0 else 1
+        
+        return create_success_response(
+            data=operators,
+            code=200,
+            pagination={
+                "page": page,
+                "pageSize": limit,
+                "total": total
+            }
         )
-    
-    operators = query.offset(skip).limit(limit).all()
-    return operators
+        
+    except Exception as e:
+        logger.error(f"Error listing public operators: {e}")
+        raise_server_error("Failed to retrieve public operators list")
 
 
 @router.post("/{operator_id}/users", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
@@ -312,25 +578,163 @@ async def create_operator_user(
     return user
 
 
-@router.get("/{operator_id}/users", response_model=List[UserResponse])
+@router.get(
+    "/{operator_id}/users", 
+    response_model=UsersListResponse,
+    responses={
+        200: {
+            "description": "List of operator users retrieved successfully",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "status": "success",
+                        "code": 200,
+                        "data": [
+                            {
+                                "id": 8,
+                                "email": "operator@example.com",
+                                "first_name": "Operator",
+                                "last_name": "Admin",
+                                "role": "ADMIN",
+                                "operator_id": 12,
+                                "is_active": True
+                            },
+                            {
+                                "id": 9,
+                                "email": "manager@example.com",
+                                "first_name": "Manager",
+                                "last_name": "User",
+                                "role": "MANAGER",
+                                "operator_id": 12,
+                                "is_active": True
+                            }
+                        ],
+                        "meta": {
+                            "requestId": "f29dbe3c-1234-4567-8901-abcdef123456",
+                            "timestamp": "2024-01-16T10:12:02.998989+05:30",
+                            "pagination": {
+                                "page": 1,
+                                "pageSize": 50,
+                                "total": 2
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        401: {
+            "description": "Authentication required",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "status": "error",
+                        "code": 401,
+                        "message": "Authentication required",
+                        "meta": {
+                            "requestId": "f29dbe3c-1234-4567-8901-abcdef123456",
+                            "timestamp": "2024-01-16T10:12:02.998989+05:30"
+                        }
+                    }
+                }
+            }
+        },
+        403: {
+            "description": "Access denied",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "status": "error",
+                        "code": 403,
+                        "message": "Access denied",
+                        "meta": {
+                            "requestId": "f29dbe3c-1234-4567-8901-abcdef123456",
+                            "timestamp": "2024-01-16T10:12:02.998989+05:30"
+                        }
+                    }
+                }
+            }
+        }
+    }
+)
 async def list_operator_users(
     operator_id: int,
     db: Session = Depends(get_db),
     current_user: OperatorUser = Depends(get_current_operator_user)
 ):
-    """List users for an operator."""
-    # Check if user has access to this operator
-    if current_user.operator_id != operator_id and current_user.role != "ADMIN":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied"
+    """
+    List users for an operator.
+    
+    This endpoint returns a list of users associated with a specific operator.
+    Only users with access to the operator (same operator_id or ADMIN role) can view this list.
+    
+    **Path Parameters:**
+    - `operator_id` (integer): The ID of the operator
+    
+    **Response:**
+    - `status` (string): "success"
+    - `code` (integer): HTTP status code (200)
+    - `data` (array): List of user objects with complete details
+    - `meta` (object): Request metadata with pagination information
+    
+    **Example Request:**
+    ```
+    GET /operators/12/users
+    ```
+    
+    **Example Success Response:**
+    ```json
+    {
+        "status": "success",
+        "code": 200,
+        "data": [
+            {
+                "id": 8,
+                "email": "operator@example.com",
+                "first_name": "Operator",
+                "last_name": "Admin",
+                "role": "ADMIN",
+                "operator_id": 12,
+                "is_active": true
+            },
+            {
+                "id": 9,
+                "email": "manager@example.com",
+                "first_name": "Manager",
+                "last_name": "User",
+                "role": "MANAGER",
+                "operator_id": 12,
+                "is_active": true
+            }
+        ],
+        "meta": {
+            "requestId": "f29dbe3c-1234-4567-8901-abcdef123456",
+            "timestamp": "2024-01-16T10:12:02.998989+05:30",
+            "pagination": {
+                "page": 1,
+                "pageSize": 50,
+                "total": 2
+            }
+        }
+    }
+    ```
+    """
+    try:
+        # Check if user has access to this operator
+        if current_user.operator_id != operator_id and current_user.role != "ADMIN":
+            raise_authorization_error("Access denied")
+        
+        users = db.query(OperatorUser).filter(
+            OperatorUser.operator_id == operator_id
+        ).all()
+        
+        return create_success_response(
+            data=users,
+            code=200
         )
-    
-    users = db.query(OperatorUser).filter(
-        OperatorUser.operator_id == operator_id
-    ).all()
-    
-    return users
+        
+    except Exception as e:
+        logger.error(f"Error listing operator users: {e}")
+        raise_server_error("Failed to retrieve operator users list")
 
 
 @router.put("/{operator_id}/users/{user_id}", response_model=UserResponse)
