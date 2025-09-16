@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     # Celery Configuration
     celery_broker_url: str = "redis://localhost:6379/0"
     celery_result_backend: str = "redis://localhost:6379/0"
+    celery_task_always_eager: bool = True  # Set to True to disable Celery for development
     
     # JWT Configuration
     jwt_secret_key: str = "your-secret-key-change-in-production"

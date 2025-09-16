@@ -67,7 +67,7 @@ class JWTHandler:
             expire = datetime.utcnow() + timedelta(minutes=self.access_token_expire_minutes)
         
         to_encode = {
-            "user_id": user_id,
+            "sub": user_id,
             "exp": expire,
             "type": "access"
         }
@@ -97,7 +97,7 @@ class JWTHandler:
             expire = datetime.utcnow() + timedelta(days=self.refresh_token_expire_days)
         
         to_encode = {
-            "user_id": user_id,
+            "sub": user_id,
             "exp": expire,
             "type": "refresh"
         }
@@ -185,5 +185,5 @@ class JWTHandler:
             # This is a simplified implementation
             return None
         
-        return self.create_token_pair(user_id, operator_id)
+        return self.create_token_pair(user_id, {"operator_id": operator_id})
 

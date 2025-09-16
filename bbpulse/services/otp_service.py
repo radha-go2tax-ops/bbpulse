@@ -109,7 +109,7 @@ class OTPService:
                 return False
             
             # Check if OTP is expired
-            if datetime.utcnow() > otp_record.expires_at:
+            if datetime.utcnow().replace(tzinfo=None) > otp_record.expires_at.replace(tzinfo=None):
                 logger.warning(f"OTP expired for {contact}")
                 await self._mark_otp_used(str(otp_record.id), db)
                 return False
@@ -169,6 +169,9 @@ class OTPService:
             
             db.add(otp_record)
             db.commit()
+            db.refresh(otp_record)  # Ensure the record is properly saved
+            
+            logger.info(f"OTP stored successfully for {contact} with purpose {purpose}")
             
         except Exception as e:
             logger.error(f"Error storing OTP: {e}")
@@ -184,12 +187,29 @@ class OTPService:
     ) -> Optional[OTPRecord]:
         """Get OTP record from database."""
         try:
-            return db.query(OTPRecord).filter(
+            # First, let's check what records exist for this contact
+            all_records = db.query(OTPRecord).filter(
+                OTPRecord.contact == contact
+            ).all()
+            
+            logger.info(f"Found {len(all_records)} OTP records for contact {contact}")
+            for record in all_records:
+                logger.info(f"  - Purpose: {record.purpose}, Used: {record.is_used}, Expires: {record.expires_at}")
+            
+            # Now get the specific record we're looking for
+            record = db.query(OTPRecord).filter(
                 OTPRecord.contact == contact,
                 OTPRecord.contact_type == contact_type,
                 OTPRecord.purpose == purpose,
                 OTPRecord.is_used == False
             ).first()
+            
+            if record:
+                logger.info(f"Found matching OTP record for {contact} with purpose {purpose}")
+            else:
+                logger.warning(f"No matching OTP record found for {contact} with purpose {purpose}")
+                
+            return record
         except Exception as e:
             logger.error(f"Error getting OTP record: {e}")
             return None
@@ -241,10 +261,9 @@ class OTPService:
             return False
     
     async def _send_whatsapp_otp(self, phone: str, otp: str, purpose: str) -> bool:
-        """Send OTP via WhatsApp."""
+        """Send OTP via WhatsApp using template."""
         try:
-            message = f"Your OTP code is: {otp}. This code will expire in {self.otp_expiry_minutes} minutes."
-            return await self.whatsapp_service.send_message(phone, message)
+            return await self.whatsapp_service.send_otp_message(phone, otp, purpose)
         except Exception as e:
             logger.error(f"Error sending WhatsApp OTP: {e}")
             return False

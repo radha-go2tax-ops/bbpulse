@@ -9,7 +9,7 @@ from ..models import OperatorUser
 from ..schemas import (
     UserLogin, Token, UserResponse, PasswordResetRequest, PasswordReset
 )
-from ..auth.dependencies import get_current_user
+from ..auth.dependencies import get_current_user, get_current_operator_user
 from ..auth.jwt_handler import JWTHandler
 from ..services.email_service import SESEmailService
 from ..tasks.email_tasks import send_password_reset_email
@@ -122,7 +122,7 @@ async def refresh_token(
 
 @router.get("/me", response_model=UserResponse)
 async def get_current_user_info(
-    current_user: OperatorUser = Depends(get_current_user)
+    current_user: OperatorUser = Depends(get_current_operator_user)
 ):
     """Get current user information."""
     return current_user
@@ -217,7 +217,7 @@ async def reset_password(
 
 @router.post("/logout")
 async def logout(
-    current_user: OperatorUser = Depends(get_current_user)
+    current_user: OperatorUser = Depends(get_current_operator_user)
 ):
     """Logout user (client should discard tokens)."""
     # In a stateless JWT system, logout is handled client-side
@@ -230,7 +230,7 @@ async def logout(
 async def change_password(
     current_password: str,
     new_password: str,
-    current_user: OperatorUser = Depends(get_current_user),
+    current_user: OperatorUser = Depends(get_current_operator_user),
     db: Session = Depends(get_db)
 ):
     """Change user password."""

@@ -3,6 +3,7 @@ Health check API routes.
 """
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from datetime import datetime
 from ..database import get_db
 from ..schemas import HealthCheck, AWSHealthCheck
@@ -28,12 +29,23 @@ async def health_check():
     )
 
 
+@router.get("", response_model=HealthCheck)
+async def health_check_root():
+    """Root health check endpoint (no trailing slash)."""
+    return HealthCheck(
+        status="healthy",
+        service="bbpulse",
+        timestamp=datetime.utcnow(),
+        version=settings.version if hasattr(settings, 'version') else "1.0.0"
+    )
+
+
 @router.get("/ready", response_model=HealthCheck)
 async def readiness_check(db: Session = Depends(get_db)):
     """Kubernetes readiness probe."""
     try:
         # Check database connection
-        db.execute("SELECT 1")
+        db.execute(text("SELECT 1"))
         
         return HealthCheck(
             status="ready",
@@ -104,10 +116,10 @@ async def database_health_check(db: Session = Depends(get_db)):
     """Check database connectivity and performance."""
     try:
         # Test basic query
-        result = db.execute("SELECT 1 as test").fetchone()
+        result = db.execute(text("SELECT 1 as test")).fetchone()
         
-        # Test table existence
-        tables = db.execute("SHOW TABLES").fetchall()
+        # Test table existence (PostgreSQL specific)
+        tables = db.execute(text("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'")).fetchall()
         table_count = len(tables)
         
         return {
@@ -124,5 +136,39 @@ async def database_health_check(db: Session = Depends(get_db)):
             "database": "disconnected",
             "error": str(e),
             "timestamp": datetime.utcnow()
+        }
+
+
+@router.get("/otp-test")
+async def otp_test_endpoint(db: Session = Depends(get_db)):
+    """Test endpoint to get OTP from database for testing purposes."""
+    try:
+        from ..models import OTPRecord
+        
+        # Get the most recent OTP record
+        otp_record = db.query(OTPRecord).filter(
+            OTPRecord.is_used == False
+        ).order_by(OTPRecord.created_at.desc()).first()
+        
+        if otp_record:
+            return {
+                "otp": otp_record.otp_code,
+                "contact": otp_record.contact,
+                "contact_type": otp_record.contact_type,
+                "purpose": otp_record.purpose,
+                "expires_at": otp_record.expires_at,
+                "created_at": otp_record.created_at
+            }
+        else:
+            return {
+                "message": "No unused OTP found",
+                "otp": None
+            }
+            
+    except Exception as e:
+        logger.error(f"OTP test endpoint failed: {e}")
+        return {
+            "error": str(e),
+            "otp": None
         }
 

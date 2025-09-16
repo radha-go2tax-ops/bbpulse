@@ -12,7 +12,7 @@ from sqlalchemy.exc import SQLAlchemyError
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from bbpulse.database import DATABASE_URL, Base
-from bbpulse.models import User, Organization, OrganizationMembership, OTPRecord, TokenBlacklist
+from bbpulse.models import User, OTPRecord, TokenBlacklist
 
 def create_tables():
     """Create all tables for the authentication system."""
@@ -81,41 +81,6 @@ def verify_tables():
                 print("❌ Users table not found or empty")
                 return False
             
-            # Check organizations table
-            result = conn.execute(text("""
-                SELECT column_name, data_type, is_nullable
-                FROM information_schema.columns
-                WHERE table_name = 'organizations'
-                ORDER BY ordinal_position;
-            """))
-            
-            org_columns = [row for row in result]
-            
-            if org_columns:
-                print("✅ Organizations table structure:")
-                for col in org_columns:
-                    print(f"  - {col[0]}: {col[1]} ({'NULL' if col[2] == 'YES' else 'NOT NULL'})")
-            else:
-                print("❌ Organizations table not found or empty")
-                return False
-            
-            # Check organization_memberships table
-            result = conn.execute(text("""
-                SELECT column_name, data_type, is_nullable
-                FROM information_schema.columns
-                WHERE table_name = 'organization_memberships'
-                ORDER BY ordinal_position;
-            """))
-            
-            membership_columns = [row for row in result]
-            
-            if membership_columns:
-                print("✅ Organization memberships table structure:")
-                for col in membership_columns:
-                    print(f"  - {col[0]}: {col[1]} ({'NULL' if col[2] == 'YES' else 'NOT NULL'})")
-            else:
-                print("❌ Organization memberships table not found or empty")
-                return False
             
             # Check otp_records table
             result = conn.execute(text("""

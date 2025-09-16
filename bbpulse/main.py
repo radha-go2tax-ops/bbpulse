@@ -32,14 +32,101 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down BluBus Plus API")
 
 
-# Create FastAPI instance
+# Create FastAPI instance with enterprise-standard OpenAPI configuration
 app = FastAPI(
-    title="BluBus Plus Backend API",
-    description="Backend API for BluBus Plus operator onboarding and management",
+    title="BluBus Pulse API",
+    description="""
+    ## BluBus Pulse Backend API
+    
+    A comprehensive API for bus operator onboarding, management, and authentication.
+    
+    ### Features
+    - 🔐 **Multi-channel Authentication**: Email and WhatsApp OTP verification
+    - 🚌 **Operator Management**: Complete operator registration and management
+    - 📱 **WhatsApp Integration**: Direct WhatsApp communication for operators
+    - 📧 **Email Services**: Automated email notifications and OTP delivery
+    - 🔒 **Security**: JWT tokens, rate limiting, and input validation
+    - 📊 **Document Management**: Secure document upload and verification
+    
+    ### Authentication
+    The API uses JWT tokens for authentication. Include the token in the Authorization header:
+    ```
+    Authorization: Bearer <your-token>
+    ```
+    
+    ### Rate Limiting
+    - OTP Requests: 3 requests per 5 minutes per contact
+    - Registration Attempts: 5 attempts per hour per contact
+    - Login Attempts: 10 attempts per hour per contact
+    
+    ### Response Format
+    All responses follow a standardized format:
+    ```json
+    {
+      "status": "success|error",
+      "code": 200,
+      "data": { /* response data */ },
+      "meta": {
+        "requestId": "uuid-string",
+        "timestamp": "2024-01-01T10:00:00Z"
+      }
+    }
+    ```
+    """,
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
-    lifespan=lifespan
+    openapi_url="/openapi.json",
+    lifespan=lifespan,
+    contact={
+        "name": "BluBus Pulse API Support",
+        "email": "support@blubus.com",
+        "url": "https://blubus.com/support"
+    },
+    license_info={
+        "name": "MIT License",
+        "url": "https://opensource.org/licenses/MIT"
+    },
+    servers=[
+        {
+            "url": "http://localhost:8000",
+            "description": "Development server"
+        },
+        {
+            "url": "https://api.blubus.com",
+            "description": "Production server"
+        }
+    ],
+    tags_metadata=[
+        {
+            "name": "authentication",
+            "description": "User authentication and OTP verification endpoints",
+            "externalDocs": {
+                "description": "Authentication Guide",
+                "url": "https://docs.blubus.com/auth"
+            }
+        },
+        {
+            "name": "operators",
+            "description": "Bus operator registration and management",
+            "externalDocs": {
+                "description": "Operator Guide",
+                "url": "https://docs.blubus.com/operators"
+            }
+        },
+        {
+            "name": "documents",
+            "description": "Document upload and verification for operators",
+            "externalDocs": {
+                "description": "Document Guide",
+                "url": "https://docs.blubus.com/documents"
+            }
+        },
+        {
+            "name": "health",
+            "description": "Health check and system status endpoints"
+        }
+    ]
 )
 
 # Add security middleware

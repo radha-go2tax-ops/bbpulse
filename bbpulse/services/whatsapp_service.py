@@ -72,7 +72,7 @@ class WhatsAppService:
     
     async def send_otp_message(self, phone_number: str, otp: str, purpose: str = "verification") -> bool:
         """
-        Send OTP message via WhatsApp.
+        Send OTP message via WhatsApp using template.
         
         Args:
             phone_number: Recipient's phone number
@@ -82,8 +82,86 @@ class WhatsAppService:
         Returns:
             True if message sent successfully, False otherwise
         """
-        message = f"Your OTP code is: {otp}. This code will expire in 5 minutes. Do not share this code with anyone."
-        return await self.send_message(phone_number, message)
+        return await self.send_template_message(phone_number, "login_otp", {"otp": otp})
+    
+    async def send_template_message(self, phone_number: str, template_name: str, parameters: dict) -> bool:
+        """
+        Send WhatsApp template message.
+        
+        Args:
+            phone_number: Recipient's phone number (with country code)
+            template_name: Name of the WhatsApp template
+            parameters: Dictionary of parameters to fill in the template
+            
+        Returns:
+            True if message sent successfully, False otherwise
+        """
+        try:
+            # Format phone number (remove any non-digit characters except +)
+            formatted_phone = self._format_phone_number(phone_number)
+            
+            # Prepare request data for Facebook Graph API with template
+            data = {
+                "messaging_product": "whatsapp",
+                "recipient_type": "individual",
+                "to": formatted_phone,
+                "type": "template",
+                "template": {
+                    "name": template_name,
+                    "language": {
+                        "code": "en_US"
+                    },
+                    "components": [
+                        {
+                            "type": "body",
+                            "parameters": [
+                                {
+                                    "type": "text",
+                                    "text": parameters.get("otp", "")
+                                }
+                            ]
+                        },
+                        {
+                            "type": "button",
+                            "sub_type": "url",
+                            "index": "0",
+                            "parameters": [
+                                {
+                                    "type": "text",
+                                    "text": parameters.get("otp", "")
+                                }
+                            ]
+                        }
+                    ]
+                }
+            }
+            
+            headers = {
+                "Authorization": f"Bearer {self.api_token}",
+                "Content-Type": "application/json"
+            }
+            
+            # Send request to Facebook Graph API
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.post(
+                    f"{self.api_url}/{self.phone_number_id}/messages",
+                    json=data,
+                    headers=headers
+                )
+                
+                if response.status_code == 200:
+                    logger.info(f"WhatsApp template message sent successfully to {formatted_phone}")
+                    return True
+                else:
+                    logger.error(f"WhatsApp API error: {response.status_code} - {response.text}")
+                    return False
+                    
+        except httpx.TimeoutException:
+            logger.error(f"WhatsApp API timeout for {phone_number}")
+            return False
+        except Exception as e:
+            logger.error(f"Error sending WhatsApp template message: {e}")
+            return False
     
     def _format_phone_number(self, phone_number: str) -> str:
         """

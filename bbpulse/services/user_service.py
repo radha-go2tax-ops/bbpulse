@@ -6,8 +6,8 @@ from datetime import datetime, timedelta
 from typing import Optional, Tuple
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
-from ..models import User, Organization, OrganizationMembership, ContactType, UserStatus
-from ..schemas import UserCreate, UserInDB, OrganizationCreate
+from ..models import User, ContactType, UserStatus
+from ..schemas import UserCreate, UserInDB
 from ..auth.jwt_handler import JWTHandler
 from .otp_service import OTPService
 from ..settings import settings
@@ -65,14 +65,6 @@ class UserService:
             db.commit()
             db.refresh(user)
             
-            # Create organization if provided
-            organization = None
-            if user_data.organization_name:
-                organization = await self._create_organization(
-                    user.id, 
-                    user_data.organization_name, 
-                    db
-                )
             
             # Send OTP for verification
             otp_success, otp_message = await self.otp_service.send_otp(
@@ -148,7 +140,7 @@ class UserService:
             # Get user
             user = await self._get_user_by_contact(contact, contact_type, db)
             if not user:
-                return False, "User not found", None
+                return False, "User not found. Please register first using /auth/register endpoint", None
             
             # Activate user and mark contact as verified
             if contact_type == ContactType.EMAIL:
@@ -283,7 +275,7 @@ class UserService:
             # Get user
             user = await self._get_user_by_contact(contact, contact_type, db)
             if not user:
-                return False, "User not found", None
+                return False, "User not found. Please register first using /auth/register endpoint", None
             
             # Check if user is active
             if not user.is_active:
@@ -352,40 +344,4 @@ class UserService:
         else:
             return db.query(User).filter(User.mobile == contact).first()
     
-    async def _create_organization(
-        self, 
-        user_id: str, 
-        organization_name: str, 
-        db: Session
-    ) -> Optional[Organization]:
-        """Create organization for user."""
-        try:
-            organization = Organization(
-                name=organization_name,
-                user_id=user_id,
-                settings={}
-            )
-            
-            db.add(organization)
-            db.commit()
-            db.refresh(organization)
-            
-            # Create membership for the user
-            membership = OrganizationMembership(
-                user_id=user_id,
-                organization_id=organization.id,
-                roles=["owner"],
-                departments=["management"],
-                status="active"
-            )
-            
-            db.add(membership)
-            db.commit()
-            
-            return organization
-            
-        except Exception as e:
-            logger.error(f"Error creating organization: {e}")
-            db.rollback()
-            return None
 

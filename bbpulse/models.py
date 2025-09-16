@@ -23,11 +23,6 @@ class UserStatus(str, enum.Enum):
     SUSPENDED = "suspended"
 
 
-class MembershipStatus(str, enum.Enum):
-    ACTIVE = "active"
-    INACTIVE = "inactive"
-    PENDING = "pending"
-    SUSPENDED = "suspended"
 
 
 # Association table for many-to-many relationship between routes and bus stops
@@ -189,6 +184,7 @@ class OperatorUser(Base):
     id = Column(Integer, primary_key=True, index=True)
     operator_id = Column(Integer, ForeignKey('operators.id'), nullable=False, index=True)
     email = Column(String(255), nullable=False, unique=True, index=True)
+    mobile = Column(String(20), unique=True, nullable=True, index=True)
     password_hash = Column(String(255), nullable=False)
     first_name = Column(String(100), nullable=True)
     last_name = Column(String(100), nullable=True)
@@ -196,6 +192,7 @@ class OperatorUser(Base):
     is_active = Column(Boolean, default=True, index=True)
     last_login = Column(DateTime(timezone=True), nullable=True)
     email_verified = Column(Boolean, default=False)
+    mobile_verified = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
@@ -203,7 +200,7 @@ class OperatorUser(Base):
     operator = relationship("Operator", back_populates="users")
 
     def __repr__(self):
-        return f"<OperatorUser(id={self.id}, email='{self.email}', operator_id={self.operator_id}, role='{self.role}')>"
+        return f"<OperatorUser(id={self.id}, email='{self.email}', mobile='{self.mobile}', operator_id={self.operator_id}, role='{self.role}')>"
 
 
 class EmailTemplate(Base):
@@ -264,51 +261,11 @@ class User(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     # Relationships
-    organizations = relationship("Organization", back_populates="owner")
-    memberships = relationship("OrganizationMembership", back_populates="user")
 
     def __repr__(self):
         return f"<User(id={self.id}, email='{self.email}', mobile='{self.mobile}')>"
 
 
-class Organization(Base):
-    """Model for organizations/companies."""
-    __tablename__ = "organizations"
-
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
-    name = Column(String(255), nullable=False, index=True)
-    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=False)
-    settings = Column(JSON, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-
-    # Relationships
-    owner = relationship("User", back_populates="organizations")
-    memberships = relationship("OrganizationMembership", back_populates="organization")
-
-    def __repr__(self):
-        return f"<Organization(id={self.id}, name='{self.name}')>"
-
-
-class OrganizationMembership(Base):
-    """Model for user-organization relationships with roles and departments."""
-    __tablename__ = "organization_memberships"
-
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
-    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=False, index=True)
-    organization_id = Column(UUID(as_uuid=True), ForeignKey('organizations.id'), nullable=False, index=True)
-    roles = Column(JSON, default=list, nullable=False)
-    departments = Column(JSON, default=list, nullable=False)
-    status = Column(SQLEnum(MembershipStatus), default=MembershipStatus.ACTIVE, index=True)
-    is_deleted = Column(Boolean, default=False, index=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-
-    # Relationships
-    user = relationship("User", back_populates="memberships")
-    organization = relationship("Organization", back_populates="memberships")
-
-    def __repr__(self):
-        return f"<OrganizationMembership(user_id={self.user_id}, organization_id={self.organization_id}, roles={self.roles})>"
 
 
 class OTPRecord(Base):

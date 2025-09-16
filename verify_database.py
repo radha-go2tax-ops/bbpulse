@@ -12,7 +12,7 @@ from sqlalchemy.orm import sessionmaker
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from bbpulse.database import DATABASE_URL
-from bbpulse.models import User, OTPRecord, Organization, OrganizationMembership
+from bbpulse.models import User, OTPRecord
 
 def verify_database():
     """Verify database tables and data."""
@@ -41,25 +41,6 @@ def verify_database():
             users_exists = result.scalar()
             print(f"  Users table: {'✅' if users_exists else '❌'}")
             
-            # Check organizations table
-            result = conn.execute(text("""
-                SELECT EXISTS (
-                    SELECT FROM information_schema.tables 
-                    WHERE table_name = 'organizations'
-                );
-            """))
-            orgs_exists = result.scalar()
-            print(f"  Organizations table: {'✅' if orgs_exists else '❌'}")
-            
-            # Check organization_memberships table
-            result = conn.execute(text("""
-                SELECT EXISTS (
-                    SELECT FROM information_schema.tables 
-                    WHERE table_name = 'organization_memberships'
-                );
-            """))
-            memberships_exists = result.scalar()
-            print(f"  Organization memberships table: {'✅' if memberships_exists else '❌'}")
             
             # Check otp_records table
             result = conn.execute(text("""
@@ -90,17 +71,9 @@ def verify_database():
         user_count = db.query(User).count()
         print(f"  Users: {user_count}")
         
-        # Count organizations
-        org_count = db.query(Organization).count()
-        print(f"  Organizations: {org_count}")
-        
         # Count OTP records
         otp_count = db.query(OTPRecord).count()
         print(f"  OTP records: {otp_count}")
-        
-        # Count memberships
-        membership_count = db.query(OrganizationMembership).count()
-        print(f"  Organization memberships: {membership_count}")
         
         print()
         
@@ -118,12 +91,6 @@ def verify_database():
             for otp in recent_otps:
                 print(f"  - {otp.contact} ({otp.contact_type}) - {otp.purpose} - Used: {otp.is_used}")
         
-        # Show organizations
-        if org_count > 0:
-            print("\n🏢 Organizations:")
-            orgs = db.query(Organization).order_by(Organization.created_at.desc()).limit(5).all()
-            for org in orgs:
-                print(f"  - {org.name} (Owner: {org.user_id})")
         
         print()
         print("✅ Database verification completed successfully!")

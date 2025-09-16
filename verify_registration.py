@@ -17,7 +17,6 @@ TEST_EMAIL = f"test_{uuid.uuid4().hex[:8]}@example.com"
 TEST_MOBILE = f"+1234567890"
 TEST_PASSWORD = "SecurePass123!"
 TEST_NAME = "Test User"
-TEST_ORGANIZATION = "Test Organization"
 
 class RegistrationVerifier:
     """Comprehensive verification class for registration system."""

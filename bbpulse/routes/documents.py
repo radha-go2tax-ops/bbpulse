@@ -11,7 +11,7 @@ from ..schemas import (
     DocumentUploadRequest, PresignResponse, DocumentRegisterRequest,
     OperatorDocument, OperatorDocumentUpdate
 )
-from ..auth.dependencies import get_current_user
+from ..auth.dependencies import get_current_user, get_current_operator_user
 from ..services.s3_service import S3DocumentService
 from ..tasks.document_processing import process_document_upload, delete_document_from_s3
 import logging
@@ -27,7 +27,7 @@ async def generate_upload_url(
     operator_id: int,
     request: DocumentUploadRequest,
     db: Session = Depends(get_db),
-    current_user: OperatorUser = Depends(get_current_user)
+    current_user: OperatorUser = Depends(get_current_operator_user)
 ):
     """Generate presigned URL for document upload."""
     # Check if user has access to this operator
@@ -70,7 +70,7 @@ async def register_document(
     operator_id: int,
     document_data: DocumentRegisterRequest,
     db: Session = Depends(get_db),
-    current_user: OperatorUser = Depends(get_current_user)
+    current_user: OperatorUser = Depends(get_current_operator_user)
 ):
     """Register uploaded document in database."""
     # Check if user has access to this operator
@@ -137,7 +137,7 @@ async def list_operator_documents(
     doc_type: Optional[str] = Query(None, description="Filter by document type"),
     status: Optional[str] = Query(None, description="Filter by status"),
     db: Session = Depends(get_db),
-    current_user: OperatorUser = Depends(get_current_user)
+    current_user: OperatorUser = Depends(get_current_operator_user)
 ):
     """List documents for an operator."""
     # Check if user has access to this operator
@@ -163,7 +163,7 @@ async def list_operator_documents(
 async def get_document(
     document_id: int,
     db: Session = Depends(get_db),
-    current_user: OperatorUser = Depends(get_current_user)
+    current_user: OperatorUser = Depends(get_current_operator_user)
 ):
     """Get document details."""
     document = db.query(OperatorDocument).filter(OperatorDocument.id == document_id).first()
@@ -188,7 +188,7 @@ async def get_download_url(
     document_id: int,
     expiry: Optional[int] = Query(3600, description="URL expiry in seconds"),
     db: Session = Depends(get_db),
-    current_user: OperatorUser = Depends(get_current_user)
+    current_user: OperatorUser = Depends(get_current_operator_user)
 ):
     """Get download URL for document."""
     document = db.query(OperatorDocument).filter(OperatorDocument.id == document_id).first()
@@ -230,7 +230,7 @@ async def update_document(
     document_id: int,
     document_data: OperatorDocumentUpdate,
     db: Session = Depends(get_db),
-    current_user: OperatorUser = Depends(get_current_user)
+    current_user: OperatorUser = Depends(get_current_operator_user)
 ):
     """Update document information (admin only)."""
     document = db.query(OperatorDocument).filter(OperatorDocument.id == document_id).first()
@@ -267,7 +267,7 @@ async def update_document(
 async def delete_document(
     document_id: int,
     db: Session = Depends(get_db),
-    current_user: OperatorUser = Depends(get_current_user)
+    current_user: OperatorUser = Depends(get_current_operator_user)
 ):
     """Delete document."""
     document = db.query(OperatorDocument).filter(OperatorDocument.id == document_id).first()
@@ -307,7 +307,7 @@ async def delete_document(
 async def get_required_documents(
     operator_id: int,
     db: Session = Depends(get_db),
-    current_user: OperatorUser = Depends(get_current_user)
+    current_user: OperatorUser = Depends(get_current_operator_user)
 ):
     """Get list of required documents for operator."""
     # Check if user has access to this operator

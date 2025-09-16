@@ -17,9 +17,31 @@ BluBus Pulse is the backend API service that powers the **BluBus** application e
 - 🛣️ **Route Management**: Manage bus routes and their associated stops
 - 🚍 **Real-time Tracking**: Track buses and get estimated arrival times
 - 📍 **Location Services**: GPS coordinates for bus stops
+- 🏢 **Operator Management**: Complete operator registration and management system
+- 📱 **Multi-Channel OTP**: WhatsApp and Email OTP verification for operators
+- 👥 **User Authentication**: Multi-channel user registration and login
 - 🔄 **RESTful API**: Clean and well-documented API endpoints
 - 🧪 **Testing**: Comprehensive test suite with pytest
 - 📚 **Auto Documentation**: Interactive API docs with Swagger UI
+
+## Operator Registration System
+
+The system includes a comprehensive operator registration flow:
+
+- **Multi-Channel OTP**: Supports both WhatsApp and Email verification
+- **Unified API**: Common OTP endpoints for all user types
+- **Flexible Registration**: Operators can register via phone or email
+- **Admin Management**: Complete operator lifecycle management
+- **Search & Filtering**: Advanced operator listing and search capabilities
+
+### Quick Start - Operator Registration
+
+1. **Send OTP**: `POST /auth/send-otp` with contact and contact_type
+2. **Verify OTP**: `POST /auth/verify-otp` with OTP code
+3. **Register Operator**: `POST /operators/register` with company details
+4. **List Operators**: `GET /operators/public` for public listing
+
+See [OPERATOR_WHATSAPP_GUIDE.md](OPERATOR_WHATSAPP_GUIDE.md) for detailed documentation.
 
 ## Tech Stack
 

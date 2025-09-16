@@ -7,6 +7,81 @@ from datetime import datetime
 from enum import Enum
 import re
 
+# Standardized Response Schemas
+class MetaInfo(BaseModel):
+    """Metadata for API responses."""
+    requestId: str = Field(..., example="f29dbe3c-1234-4567-8901-abcdef123456")
+    timestamp: str = Field(..., example="2024-01-01T10:00:00Z")
+    pagination: Optional[Dict[str, Any]] = Field(None, example={
+        "page": 1,
+        "pageSize": 20,
+        "total": 42
+    })
+
+    class Config:
+        json_encoders = {
+            datetime: lambda v: v.isoformat()
+        }
+
+
+class ErrorDetail(BaseModel):
+    """Individual error detail."""
+    field: str = Field(..., example="email")
+    issue: str = Field(..., example="Invalid email format")
+
+
+class BaseResponse(BaseModel):
+    """Base response schema for all API endpoints."""
+    status: str
+    code: int
+    data: Optional[Any] = None
+    meta: MetaInfo
+
+    class Config:
+        json_encoders = {
+            datetime: lambda v: v.isoformat()
+        }
+
+
+class SuccessResponse(BaseResponse):
+    """Standardized success response."""
+    status: str = "success"
+
+
+class ErrorResponse(BaseModel):
+    """Standardized error response."""
+    status: str = "error"
+    code: int
+    message: str
+    errors: Optional[List[ErrorDetail]] = None
+    meta: MetaInfo
+
+    class Config:
+        json_encoders = {
+            datetime: lambda v: v.isoformat()
+        }
+        schema_extra = {
+            "example": {
+                "status": "error",
+                "code": 400,
+                "message": "Validation failed",
+                "errors": [
+                    {
+                        "field": "email",
+                        "issue": "Invalid email format"
+                    },
+                    {
+                        "field": "password",
+                        "issue": "Must be at least 8 characters"
+                    }
+                ],
+                "meta": {
+                    "requestId": "f29dbe3c-1234-4567-8901-abcdef123456",
+                    "timestamp": "2024-01-01T10:00:00Z"
+                }
+            }
+        }
+
 
 # Base schemas
 class BusStopBase(BaseModel):
@@ -377,20 +452,24 @@ class UserStatus(str, Enum):
     SUSPENDED = "suspended"
 
 
-class MembershipStatus(str, Enum):
-    ACTIVE = "active"
-    INACTIVE = "inactive"
-    PENDING = "pending"
-    SUSPENDED = "suspended"
 
 
 # User Registration Schemas
 class UserCreate(BaseModel):
-    contact: str = Field(..., min_length=3, max_length=255)
-    contact_type: ContactType
-    password: str = Field(..., min_length=8, max_length=100)
-    full_name: str = Field(..., min_length=2, max_length=255)
-    organization_name: Optional[str] = Field(None, min_length=2, max_length=255)
+    contact: str = Field(..., min_length=3, max_length=255, example="user@example.com")
+    contact_type: ContactType = Field(..., example=ContactType.EMAIL)
+    password: str = Field(..., min_length=8, max_length=100, example="SecurePass123!")
+    full_name: str = Field(..., min_length=2, max_length=255, example="John Doe")
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "contact": "user@example.com",
+                "contact_type": "email",
+                "password": "SecurePass123!",
+                "full_name": "John Doe"
+            }
+        }
 
     @validator('contact')
     def validate_contact(cls, v, values):
@@ -450,18 +529,52 @@ class UserInDB(BaseModel):
         from_attributes = True
 
 
-class UserResponse(BaseModel):
-    success: bool
-    status: int
-    message: str
+class UserResponse(BaseResponse):
+    """Response schema for user operations."""
+    status: str = "success"
     data: Optional[UserInDB] = None
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "status": "success",
+                "code": 201,
+                "data": {
+                    "id": "uuid-string",
+                    "email": "user@example.com",
+                    "mobile": None,
+                    "full_name": "John Doe",
+                    "source": "email",
+                    "is_active": True,
+                    "is_email_verified": False,
+                    "is_mobile_verified": False,
+                    "login_attempts": 0,
+                    "last_login": None,
+                    "created_at": "2024-01-01T10:00:00Z",
+                    "updated_at": "2024-01-01T10:00:00Z"
+                },
+                "meta": {
+                    "requestId": "f29dbe3c-1234-4567-8901-abcdef123456",
+                    "timestamp": "2024-01-01T10:00:00Z"
+                }
+            }
+        }
 
 
 # OTP Schemas
 class OTPRequest(BaseModel):
-    contact: str = Field(..., min_length=3, max_length=255)
-    contact_type: ContactType
-    purpose: str = Field(..., min_length=3, max_length=50)  # registration, login, password_reset
+    contact: str = Field(..., min_length=3, max_length=255, example="user@example.com")
+    contact_type: ContactType = Field(..., example=ContactType.EMAIL)
+    purpose: str = Field(..., min_length=3, max_length=50, example="registration")  # registration, login, password_reset
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "contact": "user@example.com",
+                "contact_type": "email",
+                "purpose": "registration"
+            }
+        }
 
     @validator('contact')
     def validate_contact(cls, v, values):
@@ -476,29 +589,66 @@ class OTPRequest(BaseModel):
 
 
 class OTPVerificationRequest(BaseModel):
-    contact: str = Field(..., min_length=3, max_length=255)
-    contact_type: ContactType
-    otp: str = Field(..., min_length=4, max_length=10)
-    purpose: str = Field(..., min_length=3, max_length=50)
+    contact: str = Field(..., min_length=3, max_length=255, example="user@example.com")
+    contact_type: ContactType = Field(..., example=ContactType.EMAIL)
+    otp: str = Field(..., min_length=4, max_length=10, example="123456")
+    purpose: str = Field(..., min_length=3, max_length=50, example="registration")
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "contact": "user@example.com",
+                "contact_type": "email",
+                "otp": "123456",
+                "purpose": "registration"
+            }
+        }
 
 
 class SendOTPRequest(BaseModel):
-    contact: str = Field(..., min_length=3, max_length=255)
-    contact_type: ContactType
-    purpose: str = Field(default="registration", min_length=3, max_length=50)
+    contact: str = Field(..., min_length=3, max_length=255, example="user@example.com")
+    contact_type: ContactType = Field(..., example=ContactType.EMAIL)
+    purpose: str = Field(default="registration", min_length=3, max_length=50, example="registration")
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "contact": "user@example.com",
+                "contact_type": "email",
+                "purpose": "registration"
+            }
+        }
 
 
 # Login Schemas
 class PasswordLoginRequest(BaseModel):
-    contact: str = Field(..., min_length=3, max_length=255)
-    contact_type: ContactType
-    password: str = Field(..., min_length=8, max_length=100)
+    contact: str = Field(..., min_length=3, max_length=255, example="user@example.com")
+    contact_type: ContactType = Field(..., example=ContactType.EMAIL)
+    password: str = Field(..., min_length=8, max_length=100, example="SecurePass123!")
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "contact": "user@example.com",
+                "contact_type": "email",
+                "password": "SecurePass123!"
+            }
+        }
 
 
 class OTPLoginRequest(BaseModel):
-    contact: str = Field(..., min_length=3, max_length=255)
-    contact_type: ContactType
-    otp: str = Field(..., min_length=4, max_length=10)
+    contact: str = Field(..., min_length=3, max_length=255, example="user@example.com")
+    contact_type: ContactType = Field(..., example=ContactType.EMAIL)
+    otp: str = Field(..., min_length=4, max_length=10, example="123456")
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "contact": "user@example.com",
+                "contact_type": "email",
+                "otp": "123456"
+            }
+        }
 
 
 # Token Schemas
@@ -509,80 +659,40 @@ class TokenData(BaseModel):
     expires_in: int
 
 
-class TokenResponse(BaseModel):
-    success: bool
-    status: int
-    message: str
+class TokenResponse(BaseResponse):
+    """Response schema for token operations."""
+    status: str = "success"
     data: TokenData
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "status": "success",
+                "code": 200,
+                "data": {
+                    "access_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
+                    "refresh_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
+                    "token_type": "bearer",
+                    "expires_in": 1800
+                },
+                "meta": {
+                    "requestId": "f29dbe3c-1234-4567-8901-abcdef123456",
+                    "timestamp": "2024-01-01T10:00:00Z"
+                }
+            }
+        }
 
 
 class TokenRefreshRequest(BaseModel):
     refresh_token: str = Field(..., min_length=10)
 
 
-# Organization Schemas
-class OrganizationCreate(BaseModel):
-    name: str = Field(..., min_length=2, max_length=255)
-    settings: Optional[Dict[str, Any]] = None
-
-
-class OrganizationUpdate(BaseModel):
-    name: Optional[str] = Field(None, min_length=2, max_length=255)
-    settings: Optional[Dict[str, Any]] = None
-
-
-class OrganizationInDB(BaseModel):
-    id: str
-    name: str
-    user_id: str
-    settings: Optional[Dict[str, Any]] = None
-    created_at: datetime
-    updated_at: Optional[datetime] = None
-
-    class Config:
-        from_attributes = True
-
-
-class OrganizationResponse(BaseModel):
-    success: bool
-    status: int
-    message: str
-    data: Optional[OrganizationInDB] = None
-
-
-# Membership Schemas
-class MembershipCreate(BaseModel):
-    user_id: str
-    organization_id: str
-    roles: List[str] = Field(default_factory=list)
-    departments: List[str] = Field(default_factory=list)
-
-
-class MembershipUpdate(BaseModel):
-    roles: Optional[List[str]] = None
-    departments: Optional[List[str]] = None
-    status: Optional[MembershipStatus] = None
-
-
-class MembershipInDB(BaseModel):
-    id: str
-    user_id: str
-    organization_id: str
-    roles: List[str]
-    departments: List[str]
-    status: MembershipStatus
-    is_deleted: bool
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 # Profile Schemas
-class UserProfileResponse(BaseModel):
-    success: bool
-    status: int
-    message: str
+class UserProfileResponse(BaseResponse):
+    """Response schema for user profile operations."""
+    status: str = "success"
     data: Optional[Dict[str, Any]] = None
 
 
@@ -599,10 +709,156 @@ class UpdateProfile(BaseModel):
 
 
 # Logout Schema
-class LogoutResponse(BaseModel):
-    success: bool
-    status: int
-    message: str
+class LogoutResponse(BaseResponse):
+    """Response schema for logout operations."""
+    status: str = "success"
+    data: Optional[Dict[str, Any]] = None
+
+
+# Operator User Creation Schema
+class OperatorUserCreate(BaseModel):
+    """Schema for creating operator users."""
+    email: EmailStr = Field(..., example="admin@company.com")
+    mobile: Optional[str] = Field(None, min_length=10, max_length=20, example="+919876543210")
+    password: str = Field(..., min_length=8, max_length=100, example="SecurePass123!")
+    first_name: str = Field(..., min_length=2, max_length=100, example="John")
+    last_name: str = Field(..., min_length=2, max_length=100, example="Doe")
+    role: str = Field(default="ADMIN", example="ADMIN")
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "email": "admin@company.com",
+                "mobile": "+919876543210",
+                "password": "SecurePass123!",
+                "first_name": "John",
+                "last_name": "Doe",
+                "role": "ADMIN"
+            }
+        }
+
+    @validator('mobile')
+    def validate_mobile(cls, v):
+        if v and not re.match(r'^\+?[1-9]\d{1,14}$', v):
+            raise ValueError('Invalid phone number format')
+        return v
+
+
+# Operator Registration Schemas
+class OperatorRegistrationData(BaseModel):
+    """Schema for operator registration data."""
+    company_name: str = Field(..., min_length=2, max_length=255, example="Mumbai Bus Services")
+    contact_phone: str = Field(..., min_length=10, max_length=20, example="+919876543210")
+    business_license: Optional[str] = Field(None, max_length=100, example="BL123456789")
+    address: Optional[str] = Field(None, example="123 Main Street, Andheri")
+    city: Optional[str] = Field(None, max_length=100, example="Mumbai")
+    state: Optional[str] = Field(None, max_length=100, example="Maharashtra")
+    country: Optional[str] = Field(None, max_length=100, example="India")
+    postal_code: Optional[str] = Field(None, max_length=20, example="400001")
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "company_name": "Mumbai Bus Services",
+                "contact_phone": "+919876543210",
+                "business_license": "BL123456789",
+                "address": "123 Main Street, Andheri",
+                "city": "Mumbai",
+                "state": "Maharashtra",
+                "country": "India",
+                "postal_code": "400001"
+            }
+        }
+    
+    @validator('contact_phone')
+    def validate_phone(cls, v):
+        if not re.match(r'^\+?[1-9]\d{1,14}$', v):
+            raise ValueError('Invalid phone number format')
+        return v
+
+
+class OperatorRegistrationRequest(BaseModel):
+    """Request schema for operator registration with OTP verification."""
+    contact: str = Field(..., min_length=10, max_length=20, example="+919876543210")
+    contact_type: ContactType = Field(default=ContactType.WHATSAPP, example=ContactType.WHATSAPP)
+    otp: str = Field(..., min_length=4, max_length=10, example="123456")
+    registration_data: OperatorRegistrationData
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "contact": "+919876543210",
+                "contact_type": "whatsapp",
+                "otp": "123456",
+                "registration_data": {
+                    "company_name": "Mumbai Bus Services",
+                    "contact_phone": "+919876543210",
+                    "business_license": "BL123456789",
+                    "address": "123 Main Street, Andheri",
+                    "city": "Mumbai",
+                    "state": "Maharashtra",
+                    "country": "India",
+                    "postal_code": "400001"
+                }
+            }
+        }
+    
+    @validator('contact')
+    def validate_contact(cls, v, values):
+        contact_type = values.get('contact_type')
+        if contact_type == ContactType.WHATSAPP:
+            if not re.match(r'^\+?[1-9]\d{1,14}$', v):
+                raise ValueError('Invalid phone number format')
+        elif contact_type == ContactType.EMAIL:
+            if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', v):
+                raise ValueError('Invalid email format')
+        return v
+
+
+class OperatorRegistrationResponse(BaseResponse):
+    """Response schema for operator registration."""
+    status: str = "success"
+    data: Optional[Dict[str, Any]] = None
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "status": "success",
+                "code": 201,
+                "data": {
+                    "operator": {
+                        "id": 1,
+                        "company_name": "Mumbai Bus Services",
+                        "contact_email": "operator_+919876543210@temp.com",
+                        "contact_phone": "+919876543210",
+                        "business_license": "BL123456789",
+                        "address": "123 Main Street, Andheri",
+                        "city": "Mumbai",
+                        "state": "Maharashtra",
+                        "country": "India",
+                        "postal_code": "400001",
+                        "status": "PENDING",
+                        "created_at": "2024-01-01T10:00:00Z",
+                        "updated_at": "2024-01-01T10:00:00Z"
+                    },
+                    "login_credentials": {
+                        "email": "operator_+919876543210@temp.com",
+                        "temporary_password": "TempPass1123!",
+                        "message": "Please change your password after first login"
+                    }
+                },
+                "meta": {
+                    "requestId": "f29dbe3c-1234-4567-8901-abcdef123456",
+                    "timestamp": "2024-01-01T10:00:00Z"
+                }
+            }
+        }
+
+
+class OperatorOTPResponse(BaseResponse):
+    """Response schema for OTP operations."""
+    status: str = "success"
+    data: Optional[Dict[str, Any]] = None
 
 
 # Import Enum for proper type hints
