@@ -300,7 +300,8 @@ async def get_operator(
         
         return create_success_response(
             data=operator,
-            code=200
+            code=200,
+            pagination=None
         )
         
     except Exception as e:

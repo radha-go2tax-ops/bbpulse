@@ -1,7 +1,8 @@
 """
 Main FastAPI application for BluBus Plus.
 """
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from contextlib import asynccontextmanager
@@ -143,6 +144,28 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# Custom exception handler for standardized error responses
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    """
+    Custom exception handler to return standardized error responses.
+    This prevents FastAPI from wrapping our error responses in a 'detail' field.
+    """
+    # If the detail is already a dict with our standardized format, return it directly
+    if isinstance(exc.detail, dict) and "status" in exc.detail:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=exc.detail
+        )
+    
+    # Otherwise, return the default FastAPI format
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail}
+    )
+
 
 # Include routers
 app.include_router(health.router)
