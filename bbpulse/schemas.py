@@ -18,15 +18,10 @@ class MetaInfo(BaseModel):
         "total": 42
     })
 
-    class Config:
-        json_encoders = {
-            datetime: lambda v: v.isoformat()
-        }
-        
     def model_dump(self, **kwargs):
-        """Override model_dump to exclude None values."""
-        kwargs.setdefault('exclude_none', True)
-        return super().model_dump(**kwargs)
+        """Override to exclude None values."""
+        data = super().model_dump(**kwargs)
+        return {k: v for k, v in data.items() if v is not None}
 
 
 class ErrorDetail(BaseModel):
@@ -40,7 +35,7 @@ class BaseResponse(BaseModel):
     status: str
     code: int
     data: Optional[Any] = None
-    meta: MetaInfo
+    meta: Dict[str, Any]
 
     class Config:
         json_encoders = {
@@ -59,7 +54,7 @@ class ErrorResponse(BaseModel):
     code: int
     message: str
     errors: Optional[List[ErrorDetail]] = None
-    meta: MetaInfo
+    meta: Dict[str, Any]
 
     class Config:
         json_encoders = {

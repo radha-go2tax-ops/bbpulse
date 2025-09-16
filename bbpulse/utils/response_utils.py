@@ -16,7 +16,7 @@ def generate_request_id() -> str:
 def create_meta_info(
     request_id: Optional[str] = None,
     pagination: Optional[Dict[str, Any]] = None
-) -> MetaInfo:
+) -> dict:
     """Create metadata for API responses."""
     meta_data = {
         "requestId": request_id or generate_request_id(),
@@ -27,7 +27,7 @@ def create_meta_info(
     if pagination is not None:
         meta_data["pagination"] = pagination
     
-    return MetaInfo(**meta_data)
+    return meta_data
 
 
 def create_success_response(

@@ -17,8 +17,8 @@ class TokenService:
     
     def __init__(self):
         self.jwt_handler = JWTHandler()
-        self.access_token_expire_minutes = getattr(settings, 'jwt_access_token_expire_minutes', 30)
-        self.refresh_token_expire_days = getattr(settings, 'jwt_refresh_token_expire_days', 7)
+        self.access_token_expire_minutes = settings.jwt_access_token_expire_minutes
+        self.refresh_token_expire_days = settings.jwt_refresh_token_expire_days
     
     async def create_tokens(
         self, 
@@ -90,7 +90,7 @@ class TokenService:
             if not payload:
                 return None
             
-            user_id = payload.get("user_id")
+            user_id = payload.get("sub")
             if not user_id:
                 return None
             
@@ -98,18 +98,49 @@ class TokenService:
             if await self._is_token_blacklisted(refresh_token, db):
                 return None
             
-            # Get user from database
-            user = db.query(User).filter(User.id == user_id).first()
-            if not user or not user.is_active:
-                return None
+            # Check if this is an operator user (integer ID) or regular user (UUID)
+            from ..models import OperatorUser
+            import uuid
             
-            # Create new token pair
-            additional_claims = {
-                "organization_id": payload.get("organization_id"),
-                "roles": payload.get("roles", [])
-            }
+            # Try OperatorUser first (integer ID)
+            try:
+                operator_user = db.query(OperatorUser).filter(OperatorUser.id == int(user_id)).first()
+                if operator_user and operator_user.is_active:
+                    # Operator user found - use JWT handler directly
+                    additional_claims = {
+                        "operator_id": operator_user.operator_id
+                    }
+                    tokens = self.jwt_handler.create_token_pair(str(operator_user.id), additional_claims)
+                    
+                    # Convert to expected format
+                    return {
+                        "access_token": tokens["access_token"],
+                        "refresh_token": tokens["refresh_token"],
+                        "token_type": "bearer",
+                        "expires_in": self.jwt_handler.access_token_expire_minutes * 60
+                    }
+            except (ValueError, TypeError):
+                # user_id is not an integer, try as UUID for regular user
+                pass
             
-            return await self.create_tokens(user_id, additional_claims)
+            # Try regular User table (UUID)
+            try:
+                user_uuid = uuid.UUID(user_id)
+                user = db.query(User).filter(User.id == user_uuid).first()
+                if user and user.is_active:
+                    # Regular user found
+                    additional_claims = {
+                        "email": user.email,
+                        "mobile": user.mobile,
+                        "full_name": user.full_name
+                    }
+                    return await self.create_tokens(user_id, additional_claims)
+            except (ValueError, TypeError):
+                # user_id is not a valid UUID
+                pass
+            
+            # No valid user found
+            return None
             
         except Exception as e:
             logger.error(f"Error renewing tokens: {e}")

@@ -755,11 +755,16 @@ async def refresh_token(
         tokens = await token_service.renew_tokens(refresh_request.refresh_token, db)
         
         if tokens:
-            return TokenResponse(
-                success=True,
-                status=200,
-                message="Tokens refreshed successfully",
-                data=tokens
+            from ..schemas import TokenData
+            token_data = TokenData(
+                access_token=tokens["access_token"],
+                refresh_token=tokens["refresh_token"],
+                token_type="bearer",
+                expires_in=tokens["expires_in"]
+            )
+            return create_success_response(
+                data=token_data,
+                code=200
             )
         else:
             raise_authentication_error("Invalid or expired refresh token")
