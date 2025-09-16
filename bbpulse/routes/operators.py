@@ -7,7 +7,7 @@ from typing import List, Optional
 from ..database import get_db
 from ..models import Operator, OperatorUser, User
 from ..schemas import (
-    OperatorCreate, OperatorUpdate, OperatorResponse, OperatorsListResponse,
+    OperatorCreate, OperatorUpdate, OperatorResponse, OperatorsListResponse, OperatorDetailResponse,
     UserCreate, UserResponse, UserUpdate, UsersListResponse,
     OperatorRegistrationRequest, OperatorRegistrationResponse,
     OperatorUserCreate
@@ -77,28 +77,235 @@ async def create_operator(
         )
 
 
-@router.get("/{operator_id}", response_model=OperatorResponse)
+@router.get(
+    "/{operator_id}", 
+    response_model=OperatorDetailResponse,
+    responses={
+        200: {
+            "description": "Operator details retrieved successfully",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "status": "success",
+                        "code": 200,
+                        "data": {
+                            "id": 12,
+                            "company_name": "Mumbai Bus Services",
+                            "contact_email": "operator@example.com",
+                            "contact_phone": "+919731990033",
+                            "business_license": "BL123456789",
+                            "address": "123 Main Street, Andheri",
+                            "city": "Mumbai",
+                            "state": "Maharashtra",
+                            "country": "India",
+                            "postal_code": "400001",
+                            "status": "PENDING",
+                            "verification_notes": None,
+                            "created_at": "2024-01-16T10:12:02.998989+05:30",
+                            "updated_at": None,
+                            "verified_at": None,
+                            "documents": [],
+                            "users": [
+                                {
+                                    "id": 8,
+                                    "email": "operator@example.com",
+                                    "first_name": "Operator",
+                                    "last_name": "Admin",
+                                    "role": "ADMIN",
+                                    "operator_id": 12,
+                                    "is_active": True
+                                }
+                            ]
+                        },
+                        "meta": {
+                            "requestId": "f29dbe3c-1234-4567-8901-abcdef123456",
+                            "timestamp": "2024-01-16T10:12:02.998989+05:30"
+                        }
+                    }
+                }
+            }
+        },
+        401: {
+            "description": "Authentication required",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "status": "error",
+                        "code": 401,
+                        "message": "Authentication required",
+                        "meta": {
+                            "requestId": "f29dbe3c-1234-4567-8901-abcdef123456",
+                            "timestamp": "2024-01-16T10:12:02.998989+05:30"
+                        }
+                    }
+                }
+            }
+        },
+        403: {
+            "description": "Access denied",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "status": "error",
+                        "code": 403,
+                        "message": "Access denied",
+                        "meta": {
+                            "requestId": "f29dbe3c-1234-4567-8901-abcdef123456",
+                            "timestamp": "2024-01-16T10:12:02.998989+05:30"
+                        }
+                    }
+                }
+            }
+        },
+        404: {
+            "description": "Operator not found",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "status": "error",
+                        "code": 404,
+                        "message": "Operator not found",
+                        "meta": {
+                            "requestId": "f29dbe3c-1234-4567-8901-abcdef123456",
+                            "timestamp": "2024-01-16T10:12:02.998989+05:30"
+                        }
+                    }
+                }
+            }
+        }
+    }
+)
 async def get_operator(
     operator_id: int,
     db: Session = Depends(get_db),
     current_user: OperatorUser = Depends(get_current_operator_user)
 ):
-    """Get operator details."""
-    # Check if user has access to this operator
-    if current_user.operator_id != operator_id and current_user.role != "ADMIN":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied"
-        )
+    """
+    Get operator details by ID.
     
-    operator = db.query(Operator).filter(Operator.id == operator_id).first()
-    if not operator:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Operator not found"
-        )
+    This endpoint returns detailed information about a specific operator including
+    company details, contact information, status, documents, and associated users.
+    Only users with access to the operator (same operator_id or ADMIN role) can view this information.
     
-    return operator
+    **Path Parameters:**
+    - `operator_id` (integer): The ID of the operator to retrieve
+    
+    **Response:**
+    - `status` (string): "success"
+    - `code` (integer): HTTP status code (200)
+    - `data` (object): Complete operator object with all details
+    - `meta` (object): Request metadata with requestId and timestamp
+    
+    **Operator Object Fields:**
+    - `id` (integer): Unique operator identifier
+    - `company_name` (string): Name of the bus operator company
+    - `contact_email` (string): Primary contact email address
+    - `contact_phone` (string): Primary contact phone number
+    - `business_license` (string): Business license number
+    - `address` (string): Company address
+    - `city` (string): Company city
+    - `state` (string): Company state/province
+    - `country` (string): Company country
+    - `postal_code` (string): Postal/ZIP code
+    - `status` (string): Operator status (PENDING, ACTIVE, SUSPENDED, REJECTED)
+    - `verification_notes` (string|null): Admin verification notes
+    - `created_at` (string): ISO timestamp when operator was created
+    - `updated_at` (string|null): ISO timestamp when operator was last updated
+    - `verified_at` (string|null): ISO timestamp when operator was verified
+    - `documents` (array): List of uploaded documents
+    - `users` (array): List of users associated with this operator
+    
+    **Example Request:**
+    ```
+    GET /operators/12
+    ```
+    
+    **Example Success Response:**
+    ```json
+    {
+        "status": "success",
+        "code": 200,
+        "data": {
+            "id": 12,
+            "company_name": "Mumbai Bus Services",
+            "contact_email": "operator@example.com",
+            "contact_phone": "+919731990033",
+            "business_license": "BL123456789",
+            "address": "123 Main Street, Andheri",
+            "city": "Mumbai",
+            "state": "Maharashtra",
+            "country": "India",
+            "postal_code": "400001",
+            "status": "PENDING",
+            "verification_notes": null,
+            "created_at": "2024-01-16T10:12:02.998989+05:30",
+            "updated_at": null,
+            "verified_at": null,
+            "documents": [],
+            "users": [
+                {
+                    "id": 8,
+                    "email": "operator@example.com",
+                    "first_name": "Operator",
+                    "last_name": "Admin",
+                    "role": "ADMIN",
+                    "operator_id": 12,
+                    "is_active": true
+                }
+            ]
+        },
+        "meta": {
+            "requestId": "f29dbe3c-1234-4567-8901-abcdef123456",
+            "timestamp": "2024-01-16T10:12:02.998989+05:30"
+        }
+    }
+    ```
+    
+    **Example Error Responses:**
+    
+    **404 - Operator Not Found:**
+    ```json
+    {
+        "status": "error",
+        "code": 404,
+        "message": "Operator not found",
+        "meta": {
+            "requestId": "f29dbe3c-1234-4567-8901-abcdef123456",
+            "timestamp": "2024-01-16T10:12:02.998989+05:30"
+        }
+    }
+    ```
+    
+    **403 - Access Denied:**
+    ```json
+    {
+        "status": "error",
+        "code": 403,
+        "message": "Access denied",
+        "meta": {
+            "requestId": "f29dbe3c-1234-4567-8901-abcdef123456",
+            "timestamp": "2024-01-16T10:12:02.998989+05:30"
+        }
+    }
+    ```
+    """
+    try:
+        # Check if user has access to this operator
+        if current_user.operator_id != operator_id and current_user.role != "ADMIN":
+            raise_authorization_error("Access denied")
+        
+        operator = db.query(Operator).filter(Operator.id == operator_id).first()
+        if not operator:
+            raise_not_found_error("Operator not found")
+        
+        return create_success_response(
+            data=operator,
+            code=200
+        )
+        
+    except Exception as e:
+        logger.error(f"Error getting operator {operator_id}: {e}")
+        raise_server_error("Failed to retrieve operator details")
 
 
 @router.put("/{operator_id}", response_model=OperatorResponse)

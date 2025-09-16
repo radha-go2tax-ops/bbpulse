@@ -319,6 +319,53 @@ class OperatorsListResponse(BaseResponse):
         }
 
 
+class OperatorDetailResponse(BaseResponse):
+    """Standardized response for single operator detail endpoints."""
+    status: str = "success"
+    data: Optional[OperatorResponse] = None
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "status": "success",
+                "code": 200,
+                "data": {
+                    "id": 12,
+                    "company_name": "Mumbai Bus Services",
+                    "contact_email": "operator@example.com",
+                    "contact_phone": "+919731990033",
+                    "business_license": "BL123456789",
+                    "address": "123 Main Street, Andheri",
+                    "city": "Mumbai",
+                    "state": "Maharashtra",
+                    "country": "India",
+                    "postal_code": "400001",
+                    "status": "PENDING",
+                    "verification_notes": None,
+                    "created_at": "2024-01-16T10:12:02.998989+05:30",
+                    "updated_at": None,
+                    "verified_at": None,
+                    "documents": [],
+                    "users": [
+                        {
+                            "id": 8,
+                            "email": "operator@example.com",
+                            "first_name": "Operator",
+                            "last_name": "Admin",
+                            "role": "ADMIN",
+                            "operator_id": 12,
+                            "is_active": True
+                        }
+                    ]
+                },
+                "meta": {
+                    "requestId": "f29dbe3c-1234-4567-8901-abcdef123456",
+                    "timestamp": "2024-01-16T10:12:02.998989+05:30"
+                }
+            }
+        }
+
+
 class UsersListResponse(BaseResponse):
     """Standardized response for users list endpoints."""
     status: str = "success"
