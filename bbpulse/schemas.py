@@ -630,34 +630,9 @@ class TokenData(BaseModel):
 
 
 
-# Unified Password Reset Schemas
-class PasswordResetRequest(BaseModel):
-    """Request password reset - unified for both user types."""
-    contact: str = Field(..., min_length=3, max_length=255, example="user@example.com")
-    contact_type: ContactType = Field(..., example=ContactType.EMAIL)
-
-    class Config:
-        schema_extra = {
-            "example": {
-                "contact": "user@example.com",
-                "contact_type": "email"
-            }
-        }
-
-    @validator('contact')
-    def validate_contact(cls, v, values):
-        contact_type = values.get('contact_type')
-        if contact_type == ContactType.EMAIL:
-            if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', v):
-                raise ValueError('Invalid email format')
-        elif contact_type == ContactType.WHATSAPP:
-            if not re.match(r'^\+?[1-9]\d{1,14}$', v):
-                raise ValueError('Invalid phone number format')
-        return v
-
-
-class PasswordResetWithOTP(BaseModel):
-    """Reset password using OTP verification - unified for both user types."""
+# Unified Password Update Schema
+class PasswordUpdateRequest(BaseModel):
+    """Update password using OTP verification - unified for both user types."""
     contact: str = Field(..., min_length=3, max_length=255, example="user@example.com")
     contact_type: ContactType = Field(..., example=ContactType.EMAIL)
     otp: str = Field(..., min_length=4, max_length=10, example="123456")
@@ -683,34 +658,6 @@ class PasswordResetWithOTP(BaseModel):
             if not re.match(r'^\+?[1-9]\d{1,14}$', v):
                 raise ValueError('Invalid phone number format')
         return v
-
-    @validator('new_password')
-    def validate_password(cls, v):
-        if len(v) < 8:
-            raise ValueError('Password must be at least 8 characters long')
-        if not re.search(r'[A-Z]', v):
-            raise ValueError('Password must contain at least one uppercase letter')
-        if not re.search(r'[a-z]', v):
-            raise ValueError('Password must contain at least one lowercase letter')
-        if not re.search(r'\d', v):
-            raise ValueError('Password must contain at least one digit')
-        if not re.search(r'[!@#$%^&*(),.?":{}|<>]', v):
-            raise ValueError('Password must contain at least one special character')
-        return v
-
-
-class ChangePasswordRequest(BaseModel):
-    """Change password for authenticated users - unified for both user types."""
-    current_password: str = Field(..., min_length=8, max_length=100, example="CurrentPass123!")
-    new_password: str = Field(..., min_length=8, max_length=100, example="NewSecurePass123!")
-
-    class Config:
-        schema_extra = {
-            "example": {
-                "current_password": "CurrentPass123!",
-                "new_password": "NewSecurePass123!"
-            }
-        }
 
     @validator('new_password')
     def validate_password(cls, v):
@@ -954,19 +901,6 @@ class SendOTPRequest(BaseModel):
 
 
 # Login Schemas
-class PasswordLoginRequest(BaseModel):
-    contact: str = Field(..., min_length=3, max_length=255, example="user@example.com")
-    contact_type: ContactType = Field(..., example=ContactType.EMAIL)
-    password: str = Field(..., min_length=8, max_length=100, example="SecurePass123!")
-
-    class Config:
-        schema_extra = {
-            "example": {
-                "contact": "user@example.com",
-                "contact_type": "email",
-                "password": "SecurePass123!"
-            }
-        }
 
 
 class OTPLoginRequest(BaseModel):

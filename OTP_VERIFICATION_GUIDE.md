@@ -36,7 +36,7 @@ The OTP verification system provides secure authentication through temporary cod
 **Parameters**:
 - `contact` (string): Email address or phone number
 - `contact_type` (enum): "email" or "whatsapp"
-- `purpose` (string): Purpose of OTP (e.g., "registration", "login", "password_reset")
+- `purpose` (string): Purpose of OTP (e.g., "registration", "login", "password_update")
 
 **Success Response**:
 ```json

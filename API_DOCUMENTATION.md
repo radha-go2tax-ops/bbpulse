@@ -78,7 +78,7 @@ This document provides comprehensive API documentation for the BluBus Pulse appl
 
 **Endpoint:** `POST /auth/send-otp`
 
-**Description:** Send a 6-digit OTP to the specified contact.
+**Description:** Send a 6-digit OTP to the specified contact for various purposes.
 
 **Request Body:**
 ```json
@@ -86,6 +86,35 @@ This document provides comprehensive API documentation for the BluBus Pulse appl
   "contact": "user@example.com",
   "contact_type": "email",
   "purpose": "registration"
+}
+```
+
+**Purpose Options:**
+- `"registration"` - For user registration verification
+- `"login"` - For OTP-based login
+- `"password_update"` - For password reset/change operations
+
+**Example Requests:**
+```json
+// For registration
+{
+  "contact": "user@example.com",
+  "contact_type": "email",
+  "purpose": "registration"
+}
+
+// For login
+{
+  "contact": "user@example.com",
+  "contact_type": "email",
+  "purpose": "login"
+}
+
+// For password update (forgot password or change password)
+{
+  "contact": "user@example.com",
+  "contact_type": "email",
+  "purpose": "password_update"
 }
 ```
 
@@ -157,18 +186,21 @@ This document provides comprehensive API documentation for the BluBus Pulse appl
 }
 ```
 
-### 4. Password Login
+### 4. Update Password
 
-**Endpoint:** `POST /auth/login/password`
+**Endpoint:** `POST /auth/update-password`
 
-**Description:** Authenticate user with password.
+**Description:** Update password using OTP verification. Works for both password reset (forgot password) and password change scenarios. Supports both regular users and operator users.
+
+**Prerequisites:** First call `/auth/send-otp` with `purpose="password_update"` to receive OTP.
 
 **Request Body:**
 ```json
 {
   "contact": "user@example.com",
   "contact_type": "email",
-  "password": "SecurePass123!"
+  "otp": "123456",
+  "new_password": "NewSecurePass123!"
 }
 ```
 
@@ -177,18 +209,33 @@ This document provides comprehensive API documentation for the BluBus Pulse appl
 {
   "status": "success",
   "code": 200,
-  "data": {
-    "access_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
-    "refresh_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
-    "token_type": "bearer",
-    "expires_in": 1800
-  },
+  "data": null,
   "meta": {
     "requestId": "f29dbe3c-1234-4567-8901-abcdef123456",
     "timestamp": "2024-01-01T10:00:00Z"
   }
 }
 ```
+
+**Error Response (400):**
+```json
+{
+  "status": "error",
+  "code": 400,
+  "message": "Invalid or expired OTP",
+  "meta": {
+    "requestId": "f29dbe3c-1234-4567-8901-abcdef123456",
+    "timestamp": "2024-01-01T10:00:00Z"
+  }
+}
+```
+
+**Password Requirements:**
+- Minimum 8 characters
+- At least one uppercase letter
+- At least one lowercase letter
+- At least one digit
+- At least one special character
 
 ### 5. OTP Login
 
@@ -643,10 +690,10 @@ curl -X POST "http://localhost:8000/operators/register" \
 
 ## OTP Purposes
 
-- `registration`: User registration
-- `login`: User login
+- `registration`: User registration verification
+- `login`: OTP-based user login
+- `password_update`: Password reset/change operations (unified)
 - `operator_registration`: Operator registration
-- `password_reset`: Password reset
 
 ## Security Features
 

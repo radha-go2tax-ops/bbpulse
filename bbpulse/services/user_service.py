@@ -173,72 +173,6 @@ class UserService:
             logger.error(f"Error verifying OTP: {e}")
             return False, "Failed to verify OTP", None
     
-    async def authenticate_with_password(
-        self, 
-        contact: str, 
-        contact_type: ContactType, 
-        password: str, 
-        db: Session
-    ) -> Tuple[bool, str, Optional[UserInDB]]:
-        """
-        Authenticate user with password.
-        
-        Args:
-            contact: Email or phone number
-            contact_type: Type of contact
-            password: User password
-            db: Database session
-            
-        Returns:
-            Tuple of (success, message, user_data)
-        """
-        try:
-            # Get user
-            user = await self._get_user_by_contact(contact, contact_type, db)
-            if not user:
-                return False, "Invalid credentials", None
-            
-            # Check if user is active
-            if not user.is_active:
-                return False, "Account is deactivated", None
-            
-            # Check login attempts
-            if user.login_attempts >= self.max_login_attempts:
-                return False, "Account locked due to too many failed attempts", None
-            
-            # Verify password
-            if not self.jwt_handler.verify_password(password, user.hashed_password):
-                # Increment login attempts
-                user.login_attempts += 1
-                db.commit()
-                return False, "Invalid credentials", None
-            
-            # Reset login attempts and update last login
-            user.login_attempts = 0
-            user.last_login = datetime.utcnow()
-            db.commit()
-            
-            # Convert to response format
-            user_in_db = UserInDB(
-                id=str(user.id),
-                email=user.email,
-                mobile=user.mobile,
-                full_name=user.full_name,
-                source=user.source,
-                is_active=user.is_active,
-                is_email_verified=user.is_email_verified,
-                is_mobile_verified=user.is_mobile_verified,
-                login_attempts=user.login_attempts,
-                last_login=user.last_login,
-                created_at=user.created_at,
-                updated_at=user.updated_at
-            )
-            
-            return True, "Authentication successful", user_in_db
-            
-        except Exception as e:
-            logger.error(f"Error authenticating user: {e}")
-            return False, "Authentication failed", None
     
     async def authenticate_with_otp(
         self, 
@@ -332,6 +266,88 @@ class UserService:
             logger.error(f"Error sending OTP: {e}")
             return False, "Failed to send OTP"
     
+    async def update_password_with_otp(
+        self, 
+        contact: str, 
+        contact_type: ContactType, 
+        otp: str, 
+        new_password: str, 
+        db: Session
+    ) -> Tuple[bool, str]:
+        """
+        Update password using OTP verification - unified for both user types.
+        
+        Args:
+            contact: Email or phone number
+            contact_type: Type of contact
+            otp: OTP code
+            new_password: New password
+            db: Database session
+            
+        Returns:
+            Tuple of (success, message)
+        """
+        try:
+            # Verify OTP
+            otp_valid = await self.otp_service.verify_otp(
+                contact, 
+                contact_type, 
+                otp, 
+                "password_update",
+                db
+            )
+            
+            if not otp_valid:
+                return False, "Invalid or expired OTP"
+            
+            # Hash new password
+            hashed_password = self.jwt_handler.get_password_hash(new_password)
+            
+            # Try to find regular user first
+            user = await self._get_user_by_contact(contact, contact_type, db)
+            if user:
+                # Check if user is active
+                if not user.is_active:
+                    return False, "Account is deactivated"
+                
+                # Update password for regular user
+                user.hashed_password = hashed_password
+                user.updated_at = datetime.utcnow()
+                db.commit()
+                
+                return True, "Password updated successfully"
+            
+            # If regular user not found, try operator user
+            from ..models import OperatorUser
+            
+            if contact_type == ContactType.EMAIL:
+                operator_user = db.query(OperatorUser).filter(
+                    OperatorUser.email == contact
+                ).first()
+            else:  # WHATSAPP/MOBILE
+                operator_user = db.query(OperatorUser).filter(
+                    OperatorUser.mobile == contact
+                ).first()
+            
+            if operator_user:
+                # Check if operator user is active
+                if not operator_user.is_active:
+                    return False, "Account is deactivated"
+                
+                # Update password for operator user
+                operator_user.password_hash = hashed_password
+                operator_user.updated_at = datetime.utcnow()
+                db.commit()
+                
+                return True, "Password updated successfully"
+            
+            # No user found
+            return False, "User not found. Please register first using /auth/register or /operators/register endpoint"
+            
+        except Exception as e:
+            logger.error(f"Error updating password: {e}")
+            return False, "Failed to update password"
+
     async def _get_user_by_contact(
         self, 
         contact: str, 

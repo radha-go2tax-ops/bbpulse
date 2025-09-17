@@ -7,9 +7,8 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..schemas import (
     UserRegistrationCreate, UserResponse, OTPVerificationRequest, SendOTPRequest,
-    PasswordLoginRequest, OTPLoginRequest, TokenResponse, TokenRefreshRequest,
-    UserProfileResponse, UpdateProfile, LogoutResponse, PasswordResetRequest,
-    PasswordResetWithOTP, ChangePasswordRequest
+    OTPLoginRequest, TokenResponse, TokenRefreshRequest,
+    UserProfileResponse, UpdateProfile, LogoutResponse, PasswordUpdateRequest
 )
 from ..utils.response_utils import (
     create_success_response, raise_http_exception, raise_validation_error,
@@ -382,7 +381,7 @@ async def send_otp(
     **Request Body:**
     - `contact` (string): Email address or phone number
     - `contact_type` (enum): "email" or "whatsapp"
-    - `purpose` (string): Purpose of OTP - "registration", "login", "password_reset"
+    - `purpose` (string): Purpose of OTP - "registration", "login", "password_update"
     
     **Response:**
     - `status` (string): "success"
@@ -456,152 +455,6 @@ async def send_otp(
         raise_server_error("Failed to send OTP")
 
 
-@router.post("/login", response_model=TokenResponse)
-async def login(
-    login_request: PasswordLoginRequest,
-    db: Session = Depends(get_db)
-):
-    """
-    Unified password-based login for both user types.
-    
-    This endpoint authenticates users using their contact (email/phone) and password.
-    Works for both regular users and operator users.
-    Returns JWT access and refresh tokens upon successful authentication.
-    
-    **Request Body:**
-    - `contact` (string): Email address or phone number
-    - `contact_type` (enum): "email" or "whatsapp"
-    - `password` (string): User's password
-    
-    **Response:**
-    - `status` (string): "success"
-    - `code` (integer): HTTP status code
-    - `data` (object): Token information
-    - `meta` (object): Request metadata with requestId and timestamp
-    
-    **Example Request:**
-    ```json
-    {
-        "contact": "user@example.com",
-        "contact_type": "email",
-        "password": "SecurePass123!"
-    }
-    ```
-    
-    **Example Success Response:**
-    ```json
-    {
-        "status": "success",
-        "code": 200,
-        "data": {
-            "access_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
-            "refresh_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
-            "token_type": "bearer",
-            "expires_in": 1800
-        },
-        "meta": {
-            "requestId": "f29dbe3c-1234-4567-8901-abcdef123456",
-            "timestamp": "2024-01-01T10:00:00Z"
-        }
-    }
-    ```
-    
-    **Example Error Response (Invalid Credentials):**
-    ```json
-    {
-        "status": "error",
-        "code": 401,
-        "message": "Authentication failed",
-        "meta": {
-            "requestId": "f29dbe3c-1234-4567-8901-abcdef123456",
-            "timestamp": "2024-01-01T10:00:00Z"
-        }
-    }
-    ```
-    """
-    try:
-        # Check rate limit
-        allowed, rate_message, rate_info = await rate_limiter.check_rate_limit(
-            login_request.contact, "login_attempts", db
-        )
-        
-        if not allowed:
-            raise_rate_limit_error(rate_message)
-        
-        success, message, user = await user_service.authenticate_with_password(
-            login_request.contact,
-            login_request.contact_type,
-            login_request.password,
-            db
-        )
-        
-        if success:
-            # Create tokens
-            tokens = await token_service.create_tokens(
-                user_id=user.id,
-                additional_claims={
-                    "email": user.email,
-                    "mobile": user.mobile,
-                    "full_name": user.full_name
-                }
-            )
-            
-            return create_success_response(
-                data=tokens,
-                code=200
-            )
-        
-        # If regular user authentication failed, try operator user
-        from ..models import OperatorUser
-        from ..auth.jwt_handler import JWTHandler
-        from datetime import datetime
-        jwt_handler = JWTHandler()
-        
-        # Look for operator user by email or mobile
-        if login_request.contact_type == ContactType.EMAIL:
-            operator_user = db.query(OperatorUser).filter(
-                OperatorUser.email == login_request.contact
-            ).first()
-        else:  # WHATSAPP/MOBILE
-            operator_user = db.query(OperatorUser).filter(
-                OperatorUser.mobile == login_request.contact
-            ).first()
-        
-        if not operator_user:
-            raise_authentication_error("User not found. Please register first using /auth/register or /operators/register endpoint")
-        
-        if operator_user.is_active:
-            # Verify password
-            if jwt_handler.verify_password(login_request.password, operator_user.password_hash):
-                # Update last login
-                operator_user.last_login = datetime.utcnow()
-                db.commit()
-                
-                # Create tokens for operator user
-                tokens = jwt_handler.create_token_pair(str(operator_user.id), {"operator_id": operator_user.operator_id})
-                
-                # Convert to expected format
-                token_data = {
-                    "access_token": tokens["access_token"],
-                    "refresh_token": tokens["refresh_token"],
-                    "token_type": "bearer",
-                    "expires_in": 1800
-                }
-                
-                return create_success_response(
-                    data=token_data,
-                    code=200
-                )
-            else:
-                raise_authentication_error("Invalid credentials")
-        else:
-            raise_authentication_error("User not found. Please register first using /auth/register or /operators/register endpoint")
-            
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Password login error: {e}")
-        raise_server_error("Login failed")
 
 
 @router.post("/login/otp", response_model=TokenResponse)
@@ -803,69 +656,19 @@ async def logout(
         )
 
 
-@router.post("/password/reset-request", response_model=UserResponse)
-async def request_password_reset(
-    reset_request: PasswordResetRequest,
+
+
+@router.post("/update-password", response_model=UserResponse)
+async def update_password(
+    update_request: PasswordUpdateRequest,
     db: Session = Depends(get_db)
 ):
     """
-    Request password reset - unified for both user types.
+    Update password using OTP verification - unified for both user types.
     
-    This endpoint sends an OTP to the user's contact for password reset.
-    The user must then use the OTP to reset their password.
-    
-    **Request Body:**
-    - `contact` (string): Email address or phone number
-    - `contact_type` (enum): "email" or "whatsapp"
-    
-    **Response:**
-    - `status` (string): "success"
-    - `code` (integer): HTTP status code
-    - `data` (null): No data returned for security
-    - `meta` (object): Request metadata with requestId and timestamp
-    """
-    try:
-        # Check rate limit
-        allowed, rate_message, rate_info = await rate_limiter.check_rate_limit(
-            reset_request.contact, "password_reset_requests", db
-        )
-        
-        if not allowed:
-            raise_rate_limit_error(rate_message)
-        
-        # Send OTP for password reset
-        success, message = await user_service.send_otp(
-            reset_request.contact,
-            reset_request.contact_type,
-            "password_reset",
-            db
-        )
-        
-        if success:
-            return create_success_response(
-                data=None,
-                code=200
-            )
-        else:
-            raise_validation_error(message)
-            
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Password reset request error: {e}")
-        raise_server_error("Password reset request failed")
-
-
-@router.post("/password/reset", response_model=UserResponse)
-async def reset_password_with_otp(
-    reset_request: PasswordResetWithOTP,
-    db: Session = Depends(get_db)
-):
-    """
-    Reset password using OTP verification - unified for both user types.
-    
-    This endpoint resets the user's password after verifying the OTP.
+    This endpoint allows users to update their password using OTP verification.
     Works for both regular users and operator users.
+    Use /auth/send-otp with purpose="password_update" first to get OTP.
     
     **Request Body:**
     - `contact` (string): Email address or phone number
@@ -880,12 +683,12 @@ async def reset_password_with_otp(
     - `meta` (object): Request metadata with requestId and timestamp
     """
     try:
-        # Verify OTP and reset password
-        success, message = await user_service.reset_password_with_otp(
-            reset_request.contact,
-            reset_request.contact_type,
-            reset_request.otp,
-            reset_request.new_password,
+        # Verify OTP and update password
+        success, message = await user_service.update_password_with_otp(
+            update_request.contact,
+            update_request.contact_type,
+            update_request.otp,
+            update_request.new_password,
             db
         )
         
@@ -900,53 +703,7 @@ async def reset_password_with_otp(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Password reset error: {e}")
-        raise_server_error("Password reset failed")
-
-
-@router.post("/password/change", response_model=UserResponse)
-async def change_password(
-    change_request: ChangePasswordRequest,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Change password for authenticated users - unified for both user types.
-    
-    This endpoint allows authenticated users to change their password
-    by providing their current password and new password.
-    
-    **Request Body:**
-    - `current_password` (string): Current password
-    - `new_password` (string): New password (min 8 chars, must contain uppercase, lowercase, digit, special char)
-    
-    **Response:**
-    - `status` (string): "success"
-    - `code` (integer): HTTP status code
-    - `data` (null): No data returned for security
-    - `meta` (object): Request metadata with requestId and timestamp
-    """
-    try:
-        # Change password
-        success, message = await user_service.change_password(
-            current_user.id,
-            change_request.current_password,
-            change_request.new_password,
-            db
-        )
-        
-        if success:
-            return create_success_response(
-                data=None,
-                code=200
-            )
-        else:
-            raise_validation_error(message)
-            
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Change password error: {e}")
-        raise_server_error("Password change failed")
+        logger.error(f"Password update error: {e}")
+        raise_server_error("Password update failed")
 
 
