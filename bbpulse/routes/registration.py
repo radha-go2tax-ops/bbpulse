@@ -6,9 +6,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from ..database import get_db
 from ..schemas import (
-    UserCreate, UserResponse, OTPVerificationRequest, SendOTPRequest,
+    UserRegistrationCreate, UserResponse, OTPVerificationRequest, SendOTPRequest,
     PasswordLoginRequest, OTPLoginRequest, TokenResponse, TokenRefreshRequest,
-    UserProfileResponse, UpdateProfile, LogoutResponse
+    UserProfileResponse, UpdateProfile, LogoutResponse, PasswordResetRequest,
+    PasswordResetWithOTP, ChangePasswordRequest
 )
 from ..utils.response_utils import (
     create_success_response, raise_http_exception, raise_validation_error,
@@ -104,7 +105,7 @@ rate_limiter = RateLimiter()
     }
 )
 async def register_user(
-    user_data: UserCreate,
+    user_data: UserRegistrationCreate,
     db: Session = Depends(get_db)
 ):
     """
@@ -455,15 +456,16 @@ async def send_otp(
         raise_server_error("Failed to send OTP")
 
 
-@router.post("/login/password", response_model=TokenResponse)
-async def login_with_password(
+@router.post("/login", response_model=TokenResponse)
+async def login(
     login_request: PasswordLoginRequest,
     db: Session = Depends(get_db)
 ):
     """
-    Password-based login.
+    Unified password-based login for both user types.
     
     This endpoint authenticates users using their contact (email/phone) and password.
+    Works for both regular users and operator users.
     Returns JWT access and refresh tokens upon successful authentication.
     
     **Request Body:**
@@ -576,12 +578,12 @@ async def login_with_password(
                 db.commit()
                 
                 # Create tokens for operator user
-                tokens = jwt_handler.create_token_pair(str(operator_user.id), operator_user.operator_id)
+                tokens = jwt_handler.create_token_pair(str(operator_user.id), {"operator_id": operator_user.operator_id})
                 
                 # Convert to expected format
                 token_data = {
-                    "access_token": tokens.access_token,
-                    "refresh_token": tokens.refresh_token,
+                    "access_token": tokens["access_token"],
+                    "refresh_token": tokens["refresh_token"],
                     "token_type": "bearer",
                     "expires_in": 1800
                 }
@@ -801,88 +803,150 @@ async def logout(
         )
 
 
-@router.get("/profile", response_model=UserProfileResponse)
-async def get_current_user_profile(
-    current_user: User = Depends(get_current_user)
+@router.post("/password/reset-request", response_model=UserResponse)
+async def request_password_reset(
+    reset_request: PasswordResetRequest,
+    db: Session = Depends(get_db)
 ):
-    """Get authenticated user profile."""
+    """
+    Request password reset - unified for both user types.
+    
+    This endpoint sends an OTP to the user's contact for password reset.
+    The user must then use the OTP to reset their password.
+    
+    **Request Body:**
+    - `contact` (string): Email address or phone number
+    - `contact_type` (enum): "email" or "whatsapp"
+    
+    **Response:**
+    - `status` (string): "success"
+    - `code` (integer): HTTP status code
+    - `data` (null): No data returned for security
+    - `meta` (object): Request metadata with requestId and timestamp
+    """
     try:
-        profile_data = {
-            "id": str(current_user.id),
-            "email": current_user.email,
-            "mobile": current_user.mobile,
-            "full_name": current_user.full_name,
-            "source": current_user.source,
-            "is_active": current_user.is_active,
-            "is_email_verified": current_user.is_email_verified,
-            "is_mobile_verified": current_user.is_mobile_verified,
-            "last_login": current_user.last_login,
-            "created_at": current_user.created_at
-        }
-        
-        return UserProfileResponse(
-            success=True,
-            status=200,
-            message="Profile retrieved successfully",
-            data=profile_data
+        # Check rate limit
+        allowed, rate_message, rate_info = await rate_limiter.check_rate_limit(
+            reset_request.contact, "password_reset_requests", db
         )
         
+        if not allowed:
+            raise_rate_limit_error(rate_message)
+        
+        # Send OTP for password reset
+        success, message = await user_service.send_otp(
+            reset_request.contact,
+            reset_request.contact_type,
+            "password_reset",
+            db
+        )
+        
+        if success:
+            return create_success_response(
+                data=None,
+                code=200
+            )
+        else:
+            raise_validation_error(message)
+            
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Get profile error: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to get profile"
+        logger.error(f"Password reset request error: {e}")
+        raise_server_error("Password reset request failed")
+
+
+@router.post("/password/reset", response_model=UserResponse)
+async def reset_password_with_otp(
+    reset_request: PasswordResetWithOTP,
+    db: Session = Depends(get_db)
+):
+    """
+    Reset password using OTP verification - unified for both user types.
+    
+    This endpoint resets the user's password after verifying the OTP.
+    Works for both regular users and operator users.
+    
+    **Request Body:**
+    - `contact` (string): Email address or phone number
+    - `contact_type` (enum): "email" or "whatsapp"
+    - `otp` (string): 6-digit OTP code received
+    - `new_password` (string): New password (min 8 chars, must contain uppercase, lowercase, digit, special char)
+    
+    **Response:**
+    - `status` (string): "success"
+    - `code` (integer): HTTP status code
+    - `data` (null): No data returned for security
+    - `meta` (object): Request metadata with requestId and timestamp
+    """
+    try:
+        # Verify OTP and reset password
+        success, message = await user_service.reset_password_with_otp(
+            reset_request.contact,
+            reset_request.contact_type,
+            reset_request.otp,
+            reset_request.new_password,
+            db
         )
+        
+        if success:
+            return create_success_response(
+                data=None,
+                code=200
+            )
+        else:
+            raise_validation_error(message)
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Password reset error: {e}")
+        raise_server_error("Password reset failed")
 
 
-@router.put("/profile", response_model=UserProfileResponse)
-async def update_profile(
-    update_data: UpdateProfile,
+@router.post("/password/change", response_model=UserResponse)
+async def change_password(
+    change_request: ChangePasswordRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Update user profile with OTP verification for contact changes."""
+    """
+    Change password for authenticated users - unified for both user types.
+    
+    This endpoint allows authenticated users to change their password
+    by providing their current password and new password.
+    
+    **Request Body:**
+    - `current_password` (string): Current password
+    - `new_password` (string): New password (min 8 chars, must contain uppercase, lowercase, digit, special char)
+    
+    **Response:**
+    - `status` (string): "success"
+    - `code` (integer): HTTP status code
+    - `data` (null): No data returned for security
+    - `meta` (object): Request metadata with requestId and timestamp
+    """
     try:
-        # Update profile fields
-        if update_data.full_name:
-            current_user.full_name = update_data.full_name
-        
-        # For email/mobile changes, you would typically require OTP verification
-        # This is a simplified version
-        if update_data.email and update_data.email != current_user.email:
-            current_user.email = update_data.email
-            current_user.is_email_verified = False
-        
-        if update_data.mobile and update_data.mobile != current_user.mobile:
-            current_user.mobile = update_data.mobile
-            current_user.is_mobile_verified = False
-        
-        db.commit()
-        
-        profile_data = {
-            "id": str(current_user.id),
-            "email": current_user.email,
-            "mobile": current_user.mobile,
-            "full_name": current_user.full_name,
-            "source": current_user.source,
-            "is_active": current_user.is_active,
-            "is_email_verified": current_user.is_email_verified,
-            "is_mobile_verified": current_user.is_mobile_verified,
-            "last_login": current_user.last_login,
-            "created_at": current_user.created_at
-        }
-        
-        return UserProfileResponse(
-            success=True,
-            status=200,
-            message="Profile updated successfully",
-            data=profile_data
+        # Change password
+        success, message = await user_service.change_password(
+            current_user.id,
+            change_request.current_password,
+            change_request.new_password,
+            db
         )
         
+        if success:
+            return create_success_response(
+                data=None,
+                code=200
+            )
+        else:
+            raise_validation_error(message)
+            
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Update profile error: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update profile"
-        )
+        logger.error(f"Change password error: {e}")
+        raise_server_error("Password change failed")
+
 

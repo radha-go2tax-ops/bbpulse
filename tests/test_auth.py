@@ -111,7 +111,7 @@ def test_login_inactive_user(db_session: Session, test_operator_and_user):
     assert "deactivated" in response.json()["detail"]
 
 def test_get_current_user_info(db_session: Session, test_operator_and_user):
-    """Test getting current user information."""
+    """Test getting current user information using unified profile endpoint."""
     operator, user = test_operator_and_user
     
     # Login first
@@ -123,19 +123,21 @@ def test_get_current_user_info(db_session: Session, test_operator_and_user):
     tokens = login_response.json()
     headers = {"Authorization": f"Bearer {tokens['access_token']}"}
     
-    # Get user info
-    response = client.get("/auth/me", headers=headers)
+    # Get user info using unified profile endpoint
+    response = client.get("/auth/profile", headers=headers)
     
     assert response.status_code == 200
     data = response.json()
-    assert data["email"] == "admin@testcompany.com"
-    assert data["first_name"] == "Test"
-    assert data["last_name"] == "Admin"
-    assert data["role"] == "ADMIN"
+    assert data["status"] == "success"
+    assert data["user_type"] == "operator_user"
+    assert data["data"]["email"] == "admin@testcompany.com"
+    assert data["data"]["first_name"] == "Test"
+    assert data["data"]["last_name"] == "Admin"
+    assert data["data"]["role"] == "ADMIN"
 
 def test_get_current_user_unauthorized():
     """Test getting current user without authentication."""
-    response = client.get("/auth/me")
+    response = client.get("/auth/profile")
     assert response.status_code == 401
 
 def test_refresh_token(db_session: Session, test_operator_and_user):

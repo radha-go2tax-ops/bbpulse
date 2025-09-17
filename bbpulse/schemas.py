@@ -7,6 +7,18 @@ from datetime import datetime
 from enum import Enum
 import re
 
+# Enums
+class ContactType(str, Enum):
+    EMAIL = "email"
+    WHATSAPP = "whatsapp"
+
+
+class UserStatus(str, Enum):
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    PENDING = "pending"
+    SUSPENDED = "suspended"
+
 # Standardized Response Schemas
 class MetaInfo(BaseModel):
     """Metadata for API responses."""
@@ -587,11 +599,6 @@ class UserUpdate(BaseModel):
     is_active: Optional[bool] = None
 
 
-class UserLogin(BaseModel):
-    email: EmailStr
-    password: str
-
-
 class User(UserBase):
     id: int
     operator_id: int
@@ -621,13 +628,103 @@ class TokenData(BaseModel):
     operator_id: Optional[int] = None
 
 
+
+
+# Unified Password Reset Schemas
 class PasswordResetRequest(BaseModel):
-    email: EmailStr
+    """Request password reset - unified for both user types."""
+    contact: str = Field(..., min_length=3, max_length=255, example="user@example.com")
+    contact_type: ContactType = Field(..., example=ContactType.EMAIL)
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "contact": "user@example.com",
+                "contact_type": "email"
+            }
+        }
+
+    @validator('contact')
+    def validate_contact(cls, v, values):
+        contact_type = values.get('contact_type')
+        if contact_type == ContactType.EMAIL:
+            if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', v):
+                raise ValueError('Invalid email format')
+        elif contact_type == ContactType.WHATSAPP:
+            if not re.match(r'^\+?[1-9]\d{1,14}$', v):
+                raise ValueError('Invalid phone number format')
+        return v
 
 
-class PasswordReset(BaseModel):
-    token: str
-    new_password: str = Field(..., min_length=8, max_length=100)
+class PasswordResetWithOTP(BaseModel):
+    """Reset password using OTP verification - unified for both user types."""
+    contact: str = Field(..., min_length=3, max_length=255, example="user@example.com")
+    contact_type: ContactType = Field(..., example=ContactType.EMAIL)
+    otp: str = Field(..., min_length=4, max_length=10, example="123456")
+    new_password: str = Field(..., min_length=8, max_length=100, example="NewSecurePass123!")
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "contact": "user@example.com",
+                "contact_type": "email",
+                "otp": "123456",
+                "new_password": "NewSecurePass123!"
+            }
+        }
+
+    @validator('contact')
+    def validate_contact(cls, v, values):
+        contact_type = values.get('contact_type')
+        if contact_type == ContactType.EMAIL:
+            if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', v):
+                raise ValueError('Invalid email format')
+        elif contact_type == ContactType.WHATSAPP:
+            if not re.match(r'^\+?[1-9]\d{1,14}$', v):
+                raise ValueError('Invalid phone number format')
+        return v
+
+    @validator('new_password')
+    def validate_password(cls, v):
+        if len(v) < 8:
+            raise ValueError('Password must be at least 8 characters long')
+        if not re.search(r'[A-Z]', v):
+            raise ValueError('Password must contain at least one uppercase letter')
+        if not re.search(r'[a-z]', v):
+            raise ValueError('Password must contain at least one lowercase letter')
+        if not re.search(r'\d', v):
+            raise ValueError('Password must contain at least one digit')
+        if not re.search(r'[!@#$%^&*(),.?":{}|<>]', v):
+            raise ValueError('Password must contain at least one special character')
+        return v
+
+
+class ChangePasswordRequest(BaseModel):
+    """Change password for authenticated users - unified for both user types."""
+    current_password: str = Field(..., min_length=8, max_length=100, example="CurrentPass123!")
+    new_password: str = Field(..., min_length=8, max_length=100, example="NewSecurePass123!")
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "current_password": "CurrentPass123!",
+                "new_password": "NewSecurePass123!"
+            }
+        }
+
+    @validator('new_password')
+    def validate_password(cls, v):
+        if len(v) < 8:
+            raise ValueError('Password must be at least 8 characters long')
+        if not re.search(r'[A-Z]', v):
+            raise ValueError('Password must contain at least one uppercase letter')
+        if not re.search(r'[a-z]', v):
+            raise ValueError('Password must contain at least one lowercase letter')
+        if not re.search(r'\d', v):
+            raise ValueError('Password must contain at least one digit')
+        if not re.search(r'[!@#$%^&*(),.?":{}|<>]', v):
+            raise ValueError('Password must contain at least one special character')
+        return v
 
 
 # Email Schemas
@@ -686,22 +783,12 @@ class AWSHealthCheck(HealthCheck):
 
 
 # New Authentication System Schemas
-class ContactType(str, Enum):
-    EMAIL = "email"
-    WHATSAPP = "whatsapp"
-
-
-class UserStatus(str, Enum):
-    ACTIVE = "active"
-    INACTIVE = "inactive"
-    PENDING = "pending"
-    SUSPENDED = "suspended"
 
 
 
 
 # User Registration Schemas
-class UserCreate(BaseModel):
+class UserRegistrationCreate(BaseModel):
     contact: str = Field(..., min_length=3, max_length=255, example="user@example.com")
     contact_type: ContactType = Field(..., example=ContactType.EMAIL)
     password: str = Field(..., min_length=8, max_length=100, example="SecurePass123!")
@@ -959,6 +1046,42 @@ class LogoutResponse(BaseResponse):
     """Response schema for logout operations."""
     status: str = "success"
     data: Optional[Dict[str, Any]] = None
+
+
+# Unified Profile Response Schema
+class UnifiedProfileResponse(BaseResponse):
+    """Unified response schema for profile operations that works with both User and OperatorUser."""
+    status: str = "success"
+    data: Optional[Dict[str, Any]] = None
+    user_type: str  # "user" or "operator_user"
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "status": "success",
+                "code": 200,
+                "user_type": "operator_user",
+                "data": {
+                    "id": 8,
+                    "email": "admin@testcompany.com",
+                    "mobile": "+919876543210",
+                    "first_name": "Test",
+                    "last_name": "Admin",
+                    "role": "ADMIN",
+                    "operator_id": 12,
+                    "is_active": True,
+                    "email_verified": True,
+                    "mobile_verified": True,
+                    "last_login": "2024-01-16T10:12:02.998989+05:30",
+                    "created_at": "2024-01-16T10:12:02.998989+05:30",
+                    "updated_at": "2024-01-16T10:12:02.998989+05:30"
+                },
+                "meta": {
+                    "requestId": "f29dbe3c-1234-4567-8901-abcdef123456",
+                    "timestamp": "2024-01-16T10:12:02.998989+05:30"
+                }
+            }
+        }
 
 
 # Operator User Creation Schema

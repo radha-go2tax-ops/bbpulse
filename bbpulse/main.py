@@ -8,7 +8,7 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from contextlib import asynccontextmanager
 import logging
 from .database import create_tables
-from .routes import operators, documents, auth, health, registration
+from .routes import operators, documents, auth, health, registration, unified_profile
 from .settings import settings
 
 # Configure logging
@@ -126,6 +126,14 @@ app = FastAPI(
         {
             "name": "health",
             "description": "Health check and system status endpoints"
+        },
+        {
+            "name": "unified-profile",
+            "description": "Unified profile management for both general users and operator users",
+            "externalDocs": {
+                "description": "Profile Management Guide",
+                "url": "https://docs.blubus.com/profile"
+            }
         }
     ]
 )
@@ -171,6 +179,7 @@ async def http_exception_handler(request: Request, exc: HTTPException):
 app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(registration.router)
+app.include_router(unified_profile.router)
 app.include_router(operators.router)
 app.include_router(documents.router)
 

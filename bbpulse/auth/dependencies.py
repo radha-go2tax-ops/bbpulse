@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from .jwt_handler import JWTHandler
 from ..database import get_db
 from ..models import OperatorUser, User
+from typing import Union
 from ..utils.response_utils import raise_authentication_error, raise_authorization_error
 import logging
 
@@ -151,3 +152,60 @@ def require_operator_admin_role(
         raise_authorization_error("Insufficient permissions. Admin or Manager role required")
     
     return current_user
+
+
+def get_current_user_unified(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
+) -> Union[User, OperatorUser]:
+    """
+    Get current authenticated user from JWT token, automatically detecting user type.
+    
+    This function tries to authenticate as both a general User and an OperatorUser,
+    returning the first one found. This allows for unified profile endpoints.
+    
+    Args:
+        credentials: HTTP Bearer credentials
+        db: Database session
+        
+    Returns:
+        Current authenticated user (either User or OperatorUser)
+        
+    Raises:
+        HTTPException: If token is invalid or no user found
+    """
+    try:
+        # Verify token
+        payload = jwt_handler.verify_token(credentials.credentials, "access")
+        if payload is None:
+            raise_authentication_error("Could not validate credentials")
+        
+        # Extract user ID from payload
+        user_id = payload.get("sub")
+        if user_id is None:
+            raise_authentication_error("Could not validate credentials")
+        
+        # Try to find as OperatorUser first (since they have integer IDs)
+        try:
+            operator_user = db.query(OperatorUser).filter(OperatorUser.id == int(user_id)).first()
+            if operator_user is not None:
+                return operator_user
+        except (ValueError, TypeError):
+            # user_id is not an integer, skip operator user lookup
+            pass
+        
+        # Try to find as general User (UUID)
+        try:
+            user = db.query(User).filter(User.id == user_id).first()
+            if user is not None:
+                return user
+        except (ValueError, TypeError):
+            # user_id is not a valid UUID, skip user lookup
+            pass
+        
+        # If neither found, raise authentication error
+        raise_authentication_error("Could not validate credentials")
+        
+    except Exception as e:
+        logger.error(f"Unified authentication error: {e}")
+        raise_authentication_error("Could not validate credentials")
